@@ -11,7 +11,6 @@ body{
   margin:0; min-height:100vh; background:#000; overflow:hidden;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
 }
-
 .slideshow{position:fixed; inset:0; z-index:-1}
 .slide{
   position:absolute; inset:0;
@@ -25,21 +24,19 @@ body{
 .slide:nth-child(5){background-image:url("bg5.jpg"); animation-delay:32s}
 @keyframes fade{0%{opacity:0}10%{opacity:1}40%{opacity:1}50%{opacity:0}100%{opacity:0}}
 
-.container{min-height:100vh; display:grid; place-items:center}
+.container{min-height:100vh; display:grid; place-items:center; padding:16px}
 .card{
   width:520px; max-width:92%;
   background:rgba(255,255,255,.72);
   backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
   border-radius:26px; padding:22px;
   text-align:center;
+  box-shadow:0 20px 45px rgba(0,0,0,.25);
 }
-
-.buttons{
-  position:relative;
-  height:220px;
-  margin-top:12px;
-}
-
+h1{margin:6px 0 8px; font-size:34px; color:#d6336c}
+p{margin:0 0 14px; font-size:17px; color:#333}
+.buttons{position:relative; height:220px; margin-top:12px}
 button{
   position:absolute;
   min-width:170px;
@@ -49,17 +46,16 @@ button{
   font-size:18px;
   font-weight:650;
   cursor:pointer;
+  user-select:none;
+  touch-action:manipulation;
 }
-
 #yes{background:#ff4d6d; color:#fff; z-index:1}
 #no{background:#adb5bd; color:#fff; z-index:3}
-
 .note{margin-top:10px; font-size:13px; color:#444}
 </style>
 </head>
 
 <body>
-
 <div class="slideshow">
   <div class="slide"></div><div class="slide"></div><div class="slide"></div>
   <div class="slide"></div><div class="slide"></div>
@@ -86,126 +82,225 @@ const noBtn  = document.getElementById("no");
 const card   = document.getElementById("card");
 
 let noClicks = 0;
-let yesMode = "ERRATIC"; // ERRATIC → SLOW → STATIC
+let yesMode = "ERRATIC"; // ERRATIC -> SLOW -> STATIC
+
 let rafYes = null;
 let rafNo  = null;
 
-/* ---------- helpers ---------- */
-function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
-function setPos(btn,x,y){
-  const a=arena.getBoundingClientRect(), w=btn.offsetWidth, h=btn.offsetHeight;
-  btn.style.left = clamp(x,10,a.width-w-10)+"px";
-  btn.style.top  = clamp(y,10,a.height-h-10)+"px";
-}
-function centerYes(){
-  const a=arena.getBoundingClientRect();
-  setPos(yesBtn,(a.width-yesBtn.offsetWidth)/2,20);
-}
+let pos = {x:0,y:0};
+let vel = {x:0,y:0};
+let target = {x:0,y:0};
+let lastTs = 0;
 
-/* ---------- YES motion ---------- */
-let yPos={x:0,y:0}, vel={x:200,y:160}, target={x:0,y:0};
+function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
-function randomSpot(){
-  const a=arena.getBoundingClientRect();
+/* Keep YES inside an inner “safe box” so it never lives on the extreme edges */
+function innerBounds(){
+  const a = arena.getBoundingClientRect();
+  const w = yesBtn.offsetWidth;
+  const h = yesBtn.offsetHeight;
+
+  // Inner padding (prevents “falls to side”)
+  const padX = 40;
+  const padTop = 20;
+  const padBottom = 30;
+
   return {
-    x:Math.random()*(a.width-yesBtn.offsetWidth),
-    y:60+Math.random()*(a.height-yesBtn.offsetHeight-80)
+    minX: padX,
+    maxX: a.width - w - padX,
+    minY: padTop,
+    maxY: a.height - h - padBottom
   };
 }
 
-function yesTick(){
-  if(yesMode==="STATIC") return;
+function setPos(btn,x,y){
+  const a=arena.getBoundingClientRect(), w=btn.offsetWidth, h=btn.offsetHeight;
+  const xx=clamp(x,10,a.width-w-10), yy=clamp(y,10,a.height-h-10);
+  btn.style.left = xx + "px";
+  btn.style.top  = yy + "px";
+  return {x:xx,y:yy};
+}
 
-  if(yesMode==="ERRATIC"){
-    vel.x+=(Math.random()*2-1)*120;
-    vel.y+=(Math.random()*2-1)*120;
-    yPos.x+=vel.x*0.016;
-    yPos.y+=vel.y*0.016;
+function centerYes(){
+  const a = arena.getBoundingClientRect();
+  pos = setPos(yesBtn, (a.width - yesBtn.offsetWidth)/2, 20);
+}
+
+/* ---------- YES motion ---------- */
+function randomSpotInner(){
+  const b = innerBounds();
+  return {
+    x: b.minX + Math.random() * Math.max(1, (b.maxX - b.minX)),
+    y: b.minY + Math.random() * Math.max(1, (b.maxY - b.minY))
+  };
+}
+
+function stopYes(){
+  if (rafYes) cancelAnimationFrame(rafYes);
+  rafYes = null;
+}
+
+function startErratic(){
+  stopYes();
+  yesMode = "ERRATIC";
+  const s = randomSpotInner();
+  pos = setPos(yesBtn, s.x, s.y);
+
+  // fast + chaotic but bounded
+  vel = { x: (Math.random()*2-1)*340, y: (Math.random()*2-1)*260 }; // px/s
+  lastTs = 0;
+  rafYes = requestAnimationFrame(yesTick);
+}
+
+function startSlow(){
+  stopYes();
+  yesMode = "SLOW";
+  // start from current position, pick a target
+  target = randomSpotInner();
+  lastTs = 0;
+  rafYes = requestAnimationFrame(yesTick);
+}
+
+function startStatic(){
+  stopYes();
+  yesMode = "STATIC";
+  centerYes();
+}
+
+function yesTick(ts){
+  if (yesMode === "STATIC") return;
+
+  if (!lastTs) lastTs = ts;
+  const dt = Math.min(40, ts - lastTs) / 1000; // seconds
+  lastTs = ts;
+
+  const b = innerBounds();
+
+  if (yesMode === "ERRATIC"){
+    // jitter acceleration
+    vel.x += (Math.random()*2-1) * 420 * dt;
+    vel.y += (Math.random()*2-1) * 420 * dt;
+
+    // cap speed
+    const speed = Math.hypot(vel.x, vel.y);
+    const maxSpeed = 520;
+    if (speed > maxSpeed){
+      vel.x *= maxSpeed / speed;
+      vel.y *= maxSpeed / speed;
+    }
+
+    // integrate
+    pos.x += vel.x * dt;
+    pos.y += vel.y * dt;
+
+    // HARD bounce within inner bounds (prevents corner-sticking)
+    if (pos.x < b.minX){ pos.x = b.minX; vel.x *= -0.95; }
+    if (pos.x > b.maxX){ pos.x = b.maxX; vel.x *= -0.95; }
+    if (pos.y < b.minY){ pos.y = b.minY; vel.y *= -0.95; }
+    if (pos.y > b.maxY){ pos.y = b.maxY; vel.y *= -0.95; }
+
+    pos = setPos(yesBtn, pos.x, pos.y);
   }
 
-  if(yesMode==="SLOW"){
-    const dx=target.x-yPos.x, dy=target.y-yPos.y;
-    const d=Math.hypot(dx,dy);
-    if(d<6) target=randomSpot();
-    else{
-      yPos.x+=dx*0.02;
-      yPos.y+=dy*0.02;
+  if (yesMode === "SLOW"){
+    const dx = target.x - pos.x;
+    const dy = target.y - pos.y;
+    const d  = Math.hypot(dx, dy);
+
+    if (d < 8){
+      target = randomSpotInner();
+    } else {
+      const speed = 120; // px/s slow drift
+      pos.x += (dx / d) * speed * dt;
+      pos.y += (dy / d) * speed * dt;
+
+      // clamp in inner bounds
+      pos.x = clamp(pos.x, b.minX, b.maxX);
+      pos.y = clamp(pos.y, b.minY, b.maxY);
+
+      pos = setPos(yesBtn, pos.x, pos.y);
     }
   }
 
-  setPos(yesBtn,yPos.x,yPos.y);
-  rafYes=requestAnimationFrame(yesTick);
+  rafYes = requestAnimationFrame(yesTick);
 }
 
-/* ---------- NO guard (independent loop) ---------- */
+/* ---------- NO guard (independent) ---------- */
+function stopNo(){
+  if (rafNo) cancelAnimationFrame(rafNo);
+  rafNo = null;
+}
+
 function noGuardTick(){
-  const y=yesBtn.getBoundingClientRect();
-  const a=arena.getBoundingClientRect();
+  const y = yesBtn.getBoundingClientRect();
+  const a = arena.getBoundingClientRect();
+
   setPos(
     noBtn,
-    (y.left-a.left)+(y.width-noBtn.offsetWidth)/2,
-    (y.top-a.top)+(y.height-noBtn.offsetHeight)/2
+    (y.left - a.left) + (y.width  - noBtn.offsetWidth)/2,
+    (y.top  - a.top)  + (y.height - noBtn.offsetHeight)/2
   );
-  rafNo=requestAnimationFrame(noGuardTick);
+
+  rafNo = requestAnimationFrame(noGuardTick);
 }
 
 /* ---------- difficulty progression ---------- */
 function updateDifficulty(){
-  cancelAnimationFrame(rafYes);
-  cancelAnimationFrame(rafNo);
+  stopYes();
+  stopNo();
 
-  if(noClicks===0){
-    yesMode="ERRATIC";
-  } else if(noClicks===1){
-    yesMode="SLOW";
-    target=randomSpot();
-  } else {
-    yesMode="STATIC";
-    centerYes();
-  }
+  if (noClicks === 0) startErratic();
+  else if (noClicks === 1) startSlow();
+  else startStatic();
 
-  yPos={x:yesBtn.offsetLeft,y:yesBtn.offsetTop};
-  rafYes=requestAnimationFrame(yesTick);
-  rafNo=requestAnimationFrame(noGuardTick);
+  rafNo = requestAnimationFrame(noGuardTick);
 }
 
 /* ---------- interactions ---------- */
-noBtn.onclick=()=>{
+noBtn.addEventListener("click", () => {
   noClicks++;
-  if(noClicks===1){
+
+  if (noClicks === 1){
     alert("😳 Careful ah… still got 2 chances.");
     updateDifficulty();
-  } else if(noClicks===2){
+  } else if (noClicks === 2){
     alert("🚨 LAST WARNING.\nClick NO again and the date is cancelled.");
     updateDifficulty();
   } else {
-    cancelAnimationFrame(rafYes);
-    cancelAnimationFrame(rafNo);
-    card.innerHTML=`
+    stopYes(); stopNo();
+    card.innerHTML = `
       <h1 style="color:#888;">Date Cancelled</h1>
       <p>You pressed NO 3 times 😔</p>
     `;
   }
-};
+});
 
-yesBtn.onclick=()=>{
-  cancelAnimationFrame(rafYes);
-  cancelAnimationFrame(rafNo);
-  card.innerHTML=`
+yesBtn.addEventListener("click", () => {
+  stopYes(); stopNo();
+  card.innerHTML = `
     <h1>💘 It’s a Date 💘</h1>
     <p><strong>14 February</strong></p>
     <p>Dinner at <strong>Le Petit Paris</strong></p>
-    <p>15 Swan Lake Avenue<br>Singapore 455711</p>
+    <p>15 Swan Lake Avenue<br>Opera Estate, Singapore 455711</p>
   `;
-};
+});
 
 /* ---------- init ---------- */
-window.onload=()=>{
+window.addEventListener("load", () => {
   centerYes();
-  yPos={x:yesBtn.offsetLeft,y:yesBtn.offsetTop};
   updateDifficulty();
-};
-</script>
+});
 
+window.addEventListener("resize", () => {
+  // keep YES in bounds and keep guard correct
+  if (yesMode === "STATIC") centerYes();
+  else {
+    const b = innerBounds();
+    pos.x = clamp(pos.x, b.minX, b.maxX);
+    pos.y = clamp(pos.y, b.minY, b.maxY);
+    setPos(yesBtn, pos.x, pos.y);
+  }
+});
+</script>
 </body>
 </html>
