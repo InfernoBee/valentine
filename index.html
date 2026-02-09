@@ -2,21 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Valentine?</title>
 
 <style>
 *{box-sizing:border-box}
 body{
-  margin:0; min-height:100vh; background:#000; overflow:hidden;
+  margin:0; min-height:100svh; overflow:hidden; background:#000;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  -webkit-tap-highlight-color:transparent;
 }
+
+/* Background slideshow */
 .slideshow{position:fixed; inset:0; z-index:-1}
-.slide{
-  position:absolute; inset:0;
-  background-size:cover; background-position:center;
-  opacity:0; animation:fade 40s infinite;
-}
+.slide{position:absolute; inset:0; background-size:cover; background-position:center; opacity:0; animation:fade 40s infinite}
 .slide:nth-child(1){background-image:url("bg1.jpg"); animation-delay:0s}
 .slide:nth-child(2){background-image:url("bg2.jpg"); animation-delay:8s}
 .slide:nth-child(3){background-image:url("bg3.jpg"); animation-delay:16s}
@@ -24,19 +23,27 @@ body{
 .slide:nth-child(5){background-image:url("bg5.jpg"); animation-delay:32s}
 @keyframes fade{0%{opacity:0}10%{opacity:1}40%{opacity:1}50%{opacity:0}100%{opacity:0}}
 
-.container{min-height:100vh; display:grid; place-items:center; padding:16px}
+.container{min-height:100svh; display:grid; place-items:center; padding:16px}
 .card{
-  width:520px; max-width:92%;
+  width:min(520px,100%);
   background:rgba(255,255,255,.72);
   backdrop-filter:blur(10px);
   -webkit-backdrop-filter:blur(10px);
-  border-radius:26px; padding:22px;
+  border-radius:26px;
+  padding:22px 20px 26px;
   text-align:center;
   box-shadow:0 20px 45px rgba(0,0,0,.25);
 }
 h1{margin:6px 0 8px; font-size:34px; color:#d6336c}
 p{margin:0 0 14px; font-size:17px; color:#333}
-.buttons{position:relative; height:220px; margin-top:12px}
+
+.buttons{
+  position:relative;
+  height:220px;
+  max-width:420px;
+  margin:10px auto 0;
+}
+
 button{
   position:absolute;
   min-width:170px;
@@ -49,9 +56,11 @@ button{
   user-select:none;
   touch-action:manipulation;
 }
+
 #yes{background:#ff4d6d; color:#fff; z-index:1}
 #no{background:#adb5bd; color:#fff; z-index:3}
-.note{margin-top:10px; font-size:13px; color:#444}
+
+.note{margin-top:12px; font-size:13px; color:#444}
 </style>
 </head>
 
@@ -81,225 +90,189 @@ const yesBtn = document.getElementById("yes");
 const noBtn  = document.getElementById("no");
 const card   = document.getElementById("card");
 
-let noClicks = 0;
-let yesMode = "ERRATIC"; // ERRATIC -> SLOW -> STATIC
+/* --------- State --------- */
+let noClicks = 0;                 // 0 -> try1, 1 -> try2, 2 -> try3
+let mode = "ERRATIC";             // ERRATIC | SLOW | STATIC
 
-let rafYes = null;
-let rafNo  = null;
+let yesX = 0, yesY = 0;           // YES position in arena coords (px)
+let vx = 0, vy = 0;               // velocity for ERRATIC (px/s)
+let tx = 0, ty = 0;               // target for SLOW
+let last = 0;
+let running = true;
 
-let pos = {x:0,y:0};
-let vel = {x:0,y:0};
-let target = {x:0,y:0};
-let lastTs = 0;
-
+/* --------- Helpers --------- */
 function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
-/* Keep YES inside an inner “safe box” so it never lives on the extreme edges */
-function innerBounds(){
+function arenaMetrics(){
   const a = arena.getBoundingClientRect();
   const w = yesBtn.offsetWidth;
   const h = yesBtn.offsetHeight;
 
-  // Inner padding (prevents “falls to side”)
-  const padX = 40;
-  const padTop = 20;
-  const padBottom = 30;
+  // Inner bounds keep things away from the extreme edges so it never “sticks” to side.
+  const padX = 36;
+  const padTop = 18;
+  const padBottom = 26;
 
   return {
+    aw: a.width, ah: a.height,
+    yw: w, yh: h,
     minX: padX,
-    maxX: a.width - w - padX,
+    maxX: Math.max(padX, a.width  - w - padX),
     minY: padTop,
-    maxY: a.height - h - padBottom
+    maxY: Math.max(padTop, a.height - h - padBottom)
   };
 }
 
-function setPos(btn,x,y){
-  const a=arena.getBoundingClientRect(), w=btn.offsetWidth, h=btn.offsetHeight;
-  const xx=clamp(x,10,a.width-w-10), yy=clamp(y,10,a.height-h-10);
-  btn.style.left = xx + "px";
-  btn.style.top  = yy + "px";
-  return {x:xx,y:yy};
+function applyPositions(){
+  // YES
+  yesBtn.style.left = `${yesX}px`;
+  yesBtn.style.top  = `${yesY}px`;
+
+  // NO blocks by sitting directly on top of YES (centered)
+  const nx = yesX + (yesBtn.offsetWidth - noBtn.offsetWidth)/2;
+  const ny = yesY + (yesBtn.offsetHeight - noBtn.offsetHeight)/2;
+  noBtn.style.left = `${nx}px`;
+  noBtn.style.top  = `${ny}px`;
 }
 
-function centerYes(){
-  const a = arena.getBoundingClientRect();
-  pos = setPos(yesBtn, (a.width - yesBtn.offsetWidth)/2, 20);
-}
-
-/* ---------- YES motion ---------- */
-function randomSpotInner(){
-  const b = innerBounds();
+function randomInnerSpot(m){
   return {
-    x: b.minX + Math.random() * Math.max(1, (b.maxX - b.minX)),
-    y: b.minY + Math.random() * Math.max(1, (b.maxY - b.minY))
+    x: m.minX + Math.random() * Math.max(1, (m.maxX - m.minX)),
+    y: m.minY + Math.random() * Math.max(1, (m.maxY - m.minY))
   };
 }
 
-function stopYes(){
-  if (rafYes) cancelAnimationFrame(rafYes);
-  rafYes = null;
+function setModeFromNoClicks(){
+  if (noClicks === 0) mode = "ERRATIC";
+  else if (noClicks === 1) mode = "SLOW";
+  else mode = "STATIC";
 }
 
-function startErratic(){
-  stopYes();
-  yesMode = "ERRATIC";
-  const s = randomSpotInner();
-  pos = setPos(yesBtn, s.x, s.y);
+function resetForMode(){
+  const m = arenaMetrics();
+  // Start near center for all modes
+  yesX = clamp((m.aw - m.yw)/2, m.minX, m.maxX);
+  yesY = clamp(20, m.minY, m.maxY);
 
-  // fast + chaotic but bounded
-  vel = { x: (Math.random()*2-1)*340, y: (Math.random()*2-1)*260 }; // px/s
-  lastTs = 0;
-  rafYes = requestAnimationFrame(yesTick);
+  if (mode === "ERRATIC"){
+    // fast + chaotic but bounded
+    vx = (Math.random()*2 - 1) * 420; // px/s
+    vy = (Math.random()*2 - 1) * 320;
+  }
+  if (mode === "SLOW"){
+    const s = randomInnerSpot(m);
+    tx = s.x; ty = s.y;
+  }
 }
 
-function startSlow(){
-  stopYes();
-  yesMode = "SLOW";
-  // start from current position, pick a target
-  target = randomSpotInner();
-  lastTs = 0;
-  rafYes = requestAnimationFrame(yesTick);
-}
+/* --------- Animation loop (single loop, cannot desync) --------- */
+function tick(ts){
+  if (!running) return;
 
-function startStatic(){
-  stopYes();
-  yesMode = "STATIC";
-  centerYes();
-}
+  if (!last) last = ts;
+  const dt = Math.min(40, ts - last) / 1000; // seconds
+  last = ts;
 
-function yesTick(ts){
-  if (yesMode === "STATIC") return;
+  const m = arenaMetrics();
 
-  if (!lastTs) lastTs = ts;
-  const dt = Math.min(40, ts - lastTs) / 1000; // seconds
-  lastTs = ts;
-
-  const b = innerBounds();
-
-  if (yesMode === "ERRATIC"){
+  if (mode === "ERRATIC"){
     // jitter acceleration
-    vel.x += (Math.random()*2-1) * 420 * dt;
-    vel.y += (Math.random()*2-1) * 420 * dt;
+    vx += (Math.random()*2 - 1) * 700 * dt;
+    vy += (Math.random()*2 - 1) * 700 * dt;
 
     // cap speed
-    const speed = Math.hypot(vel.x, vel.y);
-    const maxSpeed = 520;
-    if (speed > maxSpeed){
-      vel.x *= maxSpeed / speed;
-      vel.y *= maxSpeed / speed;
-    }
+    const sp = Math.hypot(vx, vy);
+    const maxSp = 700;
+    if (sp > maxSp){ vx *= maxSp/sp; vy *= maxSp/sp; }
 
-    // integrate
-    pos.x += vel.x * dt;
-    pos.y += vel.y * dt;
+    yesX += vx * dt;
+    yesY += vy * dt;
 
-    // HARD bounce within inner bounds (prevents corner-sticking)
-    if (pos.x < b.minX){ pos.x = b.minX; vel.x *= -0.95; }
-    if (pos.x > b.maxX){ pos.x = b.maxX; vel.x *= -0.95; }
-    if (pos.y < b.minY){ pos.y = b.minY; vel.y *= -0.95; }
-    if (pos.y > b.maxY){ pos.y = b.maxY; vel.y *= -0.95; }
-
-    pos = setPos(yesBtn, pos.x, pos.y);
+    // hard bounce inside inner bounds
+    if (yesX < m.minX){ yesX = m.minX; vx *= -0.92; }
+    if (yesX > m.maxX){ yesX = m.maxX; vx *= -0.92; }
+    if (yesY < m.minY){ yesY = m.minY; vy *= -0.92; }
+    if (yesY > m.maxY){ yesY = m.maxY; vy *= -0.92; }
   }
 
-  if (yesMode === "SLOW"){
-    const dx = target.x - pos.x;
-    const dy = target.y - pos.y;
+  if (mode === "SLOW"){
+    const dx = tx - yesX;
+    const dy = ty - yesY;
     const d  = Math.hypot(dx, dy);
 
-    if (d < 8){
-      target = randomSpotInner();
+    if (d < 10){
+      const s = randomInnerSpot(m);
+      tx = s.x; ty = s.y;
     } else {
-      const speed = 120; // px/s slow drift
-      pos.x += (dx / d) * speed * dt;
-      pos.y += (dy / d) * speed * dt;
-
-      // clamp in inner bounds
-      pos.x = clamp(pos.x, b.minX, b.maxX);
-      pos.y = clamp(pos.y, b.minY, b.maxY);
-
-      pos = setPos(yesBtn, pos.x, pos.y);
+      const speed = 120; // px/s
+      yesX += (dx/d) * speed * dt;
+      yesY += (dy/d) * speed * dt;
+      yesX = clamp(yesX, m.minX, m.maxX);
+      yesY = clamp(yesY, m.minY, m.maxY);
     }
   }
 
-  rafYes = requestAnimationFrame(yesTick);
+  if (mode === "STATIC"){
+    // keep centered (in case of resize)
+    yesX = clamp((m.aw - m.yw)/2, m.minX, m.maxX);
+    yesY = clamp(20, m.minY, m.maxY);
+  }
+
+  applyPositions();
+  requestAnimationFrame(tick);
 }
 
-/* ---------- NO guard (independent) ---------- */
-function stopNo(){
-  if (rafNo) cancelAnimationFrame(rafNo);
-  rafNo = null;
-}
-
-function noGuardTick(){
-  const y = yesBtn.getBoundingClientRect();
-  const a = arena.getBoundingClientRect();
-
-  setPos(
-    noBtn,
-    (y.left - a.left) + (y.width  - noBtn.offsetWidth)/2,
-    (y.top  - a.top)  + (y.height - noBtn.offsetHeight)/2
-  );
-
-  rafNo = requestAnimationFrame(noGuardTick);
-}
-
-/* ---------- difficulty progression ---------- */
-function updateDifficulty(){
-  stopYes();
-  stopNo();
-
-  if (noClicks === 0) startErratic();
-  else if (noClicks === 1) startSlow();
-  else startStatic();
-
-  rafNo = requestAnimationFrame(noGuardTick);
-}
-
-/* ---------- interactions ---------- */
+/* --------- Click logic --------- */
 noBtn.addEventListener("click", () => {
   noClicks++;
 
   if (noClicks === 1){
     alert("😳 Careful ah… still got 2 chances.");
-    updateDifficulty();
   } else if (noClicks === 2){
     alert("🚨 LAST WARNING.\nClick NO again and the date is cancelled.");
-    updateDifficulty();
   } else {
-    stopYes(); stopNo();
+    running = false;
     card.innerHTML = `
       <h1 style="color:#888;">Date Cancelled</h1>
       <p>You pressed NO 3 times 😔</p>
+      <p style="color:#666;">dont anyhow press next time</p>
     `;
+    return;
   }
+
+  setModeFromNoClicks();
+  resetForMode();
+  applyPositions();
 });
 
 yesBtn.addEventListener("click", () => {
-  stopYes(); stopNo();
+  running = false;
   card.innerHTML = `
     <h1>💘 It’s a Date 💘</h1>
     <p><strong>14 February</strong></p>
     <p>Dinner at <strong>Le Petit Paris</strong></p>
-    <p>15 Swan Lake Avenue<br>Opera Estate, Singapore 455711</p>
+    <p style="font-size:15px;color:#444;">
+      15 Swan Lake Avenue<br>
+      Opera Estate, Singapore 455711
+    </p>
+    <p style="margin-top:12px;color:#555;">– Bryan</p>
   `;
 });
 
-/* ---------- init ---------- */
+/* --------- Init --------- */
 window.addEventListener("load", () => {
-  centerYes();
-  updateDifficulty();
+  setModeFromNoClicks();
+  resetForMode();
+  applyPositions();
+  requestAnimationFrame(tick);
 });
 
 window.addEventListener("resize", () => {
-  // keep YES in bounds and keep guard correct
-  if (yesMode === "STATIC") centerYes();
-  else {
-    const b = innerBounds();
-    pos.x = clamp(pos.x, b.minX, b.maxX);
-    pos.y = clamp(pos.y, b.minY, b.maxY);
-    setPos(yesBtn, pos.x, pos.y);
-  }
+  // keep within bounds on resize/rotation
+  const m = arenaMetrics();
+  yesX = clamp(yesX, m.minX, m.maxX);
+  yesY = clamp(yesY, m.minY, m.maxY);
+  applyPositions();
 });
 </script>
 </body>
