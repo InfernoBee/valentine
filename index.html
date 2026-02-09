@@ -2,20 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Valentine?</title>
 
 <style>
 *{box-sizing:border-box}
 body{
-  margin:0; min-height:100svh; overflow:hidden; background:#000;
+  margin:0; min-height:100vh; background:#000; overflow:hidden;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-  -webkit-tap-highlight-color:transparent;
 }
 
-/* Background slideshow */
 .slideshow{position:fixed; inset:0; z-index:-1}
-.slide{position:absolute; inset:0; background-size:cover; background-position:center; opacity:0; animation:fade 40s infinite}
+.slide{
+  position:absolute; inset:0;
+  background-size:cover; background-position:center;
+  opacity:0; animation:fade 40s infinite;
+}
 .slide:nth-child(1){background-image:url("bg1.jpg"); animation-delay:0s}
 .slide:nth-child(2){background-image:url("bg2.jpg"); animation-delay:8s}
 .slide:nth-child(3){background-image:url("bg3.jpg"); animation-delay:16s}
@@ -23,202 +25,187 @@ body{
 .slide:nth-child(5){background-image:url("bg5.jpg"); animation-delay:32s}
 @keyframes fade{0%{opacity:0}10%{opacity:1}40%{opacity:1}50%{opacity:0}100%{opacity:0}}
 
-.container{min-height:100svh; display:grid; place-items:center; padding:16px}
+.container{min-height:100vh; display:grid; place-items:center}
 .card{
-  width:min(520px,100%); background:rgba(255,255,255,.72);
-  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-  border-radius:26px; padding:22px 20px 26px; text-align:center;
-  box-shadow:0 20px 45px rgba(0,0,0,.25)
+  width:520px; max-width:92%;
+  background:rgba(255,255,255,.72);
+  backdrop-filter:blur(10px);
+  border-radius:26px; padding:22px;
+  text-align:center;
 }
-h1{margin:6px 0 8px; font-size:34px; color:#d6336c}
-p{margin:0 0 14px; font-size:17px; color:#333}
 
-.buttons{position:relative; height:200px; max-width:420px; margin:10px auto 0}
+.buttons{
+  position:relative;
+  height:220px;
+  margin-top:12px;
+}
+
 button{
-  border:none; border-radius:999px; padding:14px 22px; min-width:170px;
-  font-size:18px; font-weight:650; user-select:none; touch-action:manipulation
+  position:absolute;
+  min-width:170px;
+  padding:14px 22px;
+  border:none;
+  border-radius:999px;
+  font-size:18px;
+  font-weight:650;
+  cursor:pointer;
 }
-#yes{position:absolute; background:#ff4d6d; color:#fff; z-index:1}
-#no{position:absolute; background:#adb5bd; color:#fff; z-index:3; transition:left 140ms linear, top 140ms linear}
-.note{margin-top:12px; font-size:13px; color:#444}
 
-/* Hearts */
-.heart{position:fixed; font-size:22px; pointer-events:none; animation:float 2.8s ease-out forwards}
-@keyframes float{0%{opacity:1; transform:translateY(0) scale(1)}100%{opacity:0; transform:translateY(-140px) scale(1.6)}}
+#yes{background:#ff4d6d; color:#fff; z-index:1}
+#no{background:#adb5bd; color:#fff; z-index:3}
 
-.map-btn{
-  display:inline-block; margin-top:12px; padding:12px 18px;
-  background:#ff4d6d; color:#fff; border-radius:999px; text-decoration:none; font-weight:600
-}
+.note{margin-top:10px; font-size:13px; color:#444}
 </style>
 </head>
 
 <body>
-<div class="slideshow"><div class="slide"></div><div class="slide"></div><div class="slide"></div><div class="slide"></div><div class="slide"></div></div>
+
+<div class="slideshow">
+  <div class="slide"></div><div class="slide"></div><div class="slide"></div>
+  <div class="slide"></div><div class="slide"></div>
+</div>
 
 <div class="container">
   <div class="card" id="card">
     <h1>Hi Amber 💌</h1>
     <p>Will you be my Valentine?</p>
+
     <div class="buttons" id="arena">
       <button id="yes">YES 💖</button>
       <button id="no">NO 🙃</button>
     </div>
+
     <div class="note">careful, dont anyhow press wrong ah bao</div>
   </div>
 </div>
 
 <script>
-const arena=document.getElementById("arena");
-const yesBtn=document.getElementById("yes");
-const noBtn=document.getElementById("no");
-const card=document.getElementById("card");
+const arena = document.getElementById("arena");
+const yesBtn = document.getElementById("yes");
+const noBtn  = document.getElementById("no");
+const card   = document.getElementById("card");
 
-let noCount=0; // number of times NO was clicked
+let noClicks = 0;
+let yesMode = "ERRATIC"; // ERRATIC → SLOW → STATIC
+let rafYes = null;
+let rafNo  = null;
 
-/* ---------- utilities ---------- */
+/* ---------- helpers ---------- */
 function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
-function rect(btn){
-  const a=arena.getBoundingClientRect(), b=btn.getBoundingClientRect();
-  return {a,x:b.left-a.left,y:b.top-a.top,w:b.width,h:b.height}
-}
 function setPos(btn,x,y){
   const a=arena.getBoundingClientRect(), w=btn.offsetWidth, h=btn.offsetHeight;
-  const xx=clamp(x,10,a.width-w-10), yy=clamp(y,10,a.height-h-10);
-  btn.style.left=xx+"px"; btn.style.top=yy+"px";
-  return {x:xx,y:yy}
+  btn.style.left = clamp(x,10,a.width-w-10)+"px";
+  btn.style.top  = clamp(y,10,a.height-h-10)+"px";
 }
 function centerYes(){
-  const a=arena.getBoundingClientRect(), w=yesBtn.offsetWidth;
-  pos=setPos(yesBtn,(a.width-w)/2,28)
-}
-
-/* ---------- NO behaviour ---------- */
-function noOverYes(){
-  const y=rect(yesBtn);
-  setPos(noBtn,y.x+(y.w-noBtn.offsetWidth)/2,y.y+(y.h-noBtn.offsetHeight)/2);
-}
-function noFar(){
-  const y=rect(yesBtn), side=Math.random()<.5?-1:1;
-  setPos(noBtn,y.x+side*(380+Math.random()*60),y.y+120+Math.random()*30);
+  const a=arena.getBoundingClientRect();
+  setPos(yesBtn,(a.width-yesBtn.offsetWidth)/2,20);
 }
 
 /* ---------- YES motion ---------- */
-let raf=null, mode="ERRATIC", pos={x:0,y:0}, vel={x:0,y:0}, target={x:0,y:0}, lastTs=0;
+let yPos={x:0,y:0}, vel={x:200,y:160}, target={x:0,y:0};
 
-function stopYes(){
-  if(raf) cancelAnimationFrame(raf);
-  raf=null;
-}
 function randomSpot(){
-  const a=arena.getBoundingClientRect(), w=yesBtn.offsetWidth, h=yesBtn.offsetHeight;
-  return {x:10+Math.random()*(a.width-w-20),y:40+Math.random()*(a.height-h-60)}
+  const a=arena.getBoundingClientRect();
+  return {
+    x:Math.random()*(a.width-yesBtn.offsetWidth),
+    y:60+Math.random()*(a.height-yesBtn.offsetHeight-80)
+  };
 }
 
-/* Try 1: fast erratic */
-function startErratic(){
-  stopYes(); mode="ERRATIC";
-  vel={x:(Math.random()*2-1)*260,y:(Math.random()*2-1)*260};
-  lastTs=0;
-  raf=requestAnimationFrame(erraticTick);
-}
-function erraticTick(ts){
-  if(mode!=="ERRATIC") return;
-  if(!lastTs) lastTs=ts;
-  const dt=Math.min(40,ts-lastTs)/1000; lastTs=ts;
+function yesTick(){
+  if(yesMode==="STATIC") return;
 
-  vel.x+=(Math.random()*2-1)*220*dt;
-  vel.y+=(Math.random()*2-1)*220*dt;
-  const speed=Math.hypot(vel.x,vel.y), max=420;
-  if(speed>max){vel.x*=max/speed; vel.y*=max/speed}
-
-  pos.x+=vel.x*dt; pos.y+=vel.y*dt;
-  pos=setPos(yesBtn,pos.x,pos.y);
-  raf=requestAnimationFrame(erraticTick);
-}
-
-/* Try 2: slow smooth */
-function startSlow(){
-  stopYes(); mode="SLOW";
-  target=randomSpot(); lastTs=0;
-  raf=requestAnimationFrame(slowTick);
-}
-function slowTick(ts){
-  if(mode!=="SLOW") return;
-  if(!lastTs) lastTs=ts;
-  const dt=Math.min(40,ts-lastTs); lastTs=ts;
-
-  const dx=target.x-pos.x, dy=target.y-pos.y;
-  const d=Math.hypot(dx,dy), step=0.07*dt;
-  if(d<6) target=randomSpot();
-  else{
-    pos.x+=(dx/d)*step; pos.y+=(dy/d)*step;
-    pos=setPos(yesBtn,pos.x,pos.y)
+  if(yesMode==="ERRATIC"){
+    vel.x+=(Math.random()*2-1)*120;
+    vel.y+=(Math.random()*2-1)*120;
+    yPos.x+=vel.x*0.016;
+    yPos.y+=vel.y*0.016;
   }
-  raf=requestAnimationFrame(slowTick);
+
+  if(yesMode==="SLOW"){
+    const dx=target.x-yPos.x, dy=target.y-yPos.y;
+    const d=Math.hypot(dx,dy);
+    if(d<6) target=randomSpot();
+    else{
+      yPos.x+=dx*0.02;
+      yPos.y+=dy*0.02;
+    }
+  }
+
+  setPos(yesBtn,yPos.x,yPos.y);
+  rafYes=requestAnimationFrame(yesTick);
 }
 
-/* ---------- difficulty selection ---------- */
+/* ---------- NO guard (independent loop) ---------- */
+function noGuardTick(){
+  const y=yesBtn.getBoundingClientRect();
+  const a=arena.getBoundingClientRect();
+  setPos(
+    noBtn,
+    (y.left-a.left)+(y.width-noBtn.offsetWidth)/2,
+    (y.top-a.top)+(y.height-noBtn.offsetHeight)/2
+  );
+  rafNo=requestAnimationFrame(noGuardTick);
+}
+
+/* ---------- difficulty progression ---------- */
 function updateDifficulty(){
-  stopYes();
-  noFar();
+  cancelAnimationFrame(rafYes);
+  cancelAnimationFrame(rafNo);
 
-  if(noCount===0){ startErratic(); }
-  else if(noCount===1){ startSlow(); }
-  else{ centerYes(); mode="NONE"; }
+  if(noClicks===0){
+    yesMode="ERRATIC";
+  } else if(noClicks===1){
+    yesMode="SLOW";
+    target=randomSpot();
+  } else {
+    yesMode="STATIC";
+    centerYes();
+  }
+
+  yPos={x:yesBtn.offsetLeft,y:yesBtn.offsetTop};
+  rafYes=requestAnimationFrame(yesTick);
+  rafNo=requestAnimationFrame(noGuardTick);
 }
 
-/* ---------- NO click logic ---------- */
-noBtn.addEventListener("click",()=>{
-  noCount++;
-
-  if(noCount===1){
-    alert("😳 Eh careful ah… still can change your mind.\n2 tries left.");
+/* ---------- interactions ---------- */
+noBtn.onclick=()=>{
+  noClicks++;
+  if(noClicks===1){
+    alert("😳 Careful ah… still got 2 chances.");
     updateDifficulty();
-  } else if(noCount===2){
+  } else if(noClicks===2){
     alert("🚨 LAST WARNING.\nClick NO again and the date is cancelled.");
     updateDifficulty();
   } else {
-    stopYes();
+    cancelAnimationFrame(rafYes);
+    cancelAnimationFrame(rafNo);
     card.innerHTML=`
       <h1 style="color:#888;">Date Cancelled</h1>
       <p>You pressed NO 3 times 😔</p>
-      <p style="color:#666;">dont anyhow press next time</p>
     `;
   }
-});
+};
 
-/* ---------- YES success ---------- */
-function hearts(){
-  for(let i=0;i<18;i++){
-    const h=document.createElement("div");
-    h.className="heart"; h.textContent="💖";
-    h.style.left=Math.random()*100+"vw"; h.style.top="60vh";
-    document.body.appendChild(h); setTimeout(()=>h.remove(),3000)
-  }
-}
-yesBtn.addEventListener("click",()=>{
-  stopYes(); hearts();
+yesBtn.onclick=()=>{
+  cancelAnimationFrame(rafYes);
+  cancelAnimationFrame(rafNo);
   card.innerHTML=`
     <h1>💘 It’s a Date 💘</h1>
     <p><strong>14 February</strong></p>
     <p>Dinner at <strong>Le Petit Paris</strong></p>
-    <p style="font-size:15px;color:#444;">15 Swan Lake Avenue<br>Opera Estate, Singapore 455711</p>
-    <a class="map-btn" target="_blank"
-     href="https://www.google.com/maps/search/?api=1&query=Le+Petit+Paris+15+Swan+Lake+Avenue+Singapore">📍 Open in Google Maps</a>
-    <p style="margin-top:12px;color:#555;">– Bryan</p>`;
-});
+    <p>15 Swan Lake Avenue<br>Singapore 455711</p>
+  `;
+};
 
 /* ---------- init ---------- */
-window.addEventListener("load",()=>{
+window.onload=()=>{
   centerYes();
-  noOverYes();
+  yPos={x:yesBtn.offsetLeft,y:yesBtn.offsetTop};
   updateDifficulty();
-});
-window.addEventListener("resize",()=>{
-  centerYes();
-  noOverYes();
-});
+};
 </script>
+
 </body>
 </html>
