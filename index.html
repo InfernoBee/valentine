@@ -80,7 +80,7 @@ p{
 /* ===== BUTTON ARENA ===== */
 .buttons{
   position:relative;
-  height:170px;          /* taller arena = safer */
+  height:170px;
   max-width:420px;
   margin:10px auto 0;
 }
@@ -91,7 +91,7 @@ button{
   padding:14px 22px;
   font-size:18px;
   font-weight:650;
-  min-width:160px;       /* larger hit box */
+  min-width:160px;
   cursor:pointer;
   user-select:none;
   touch-action:manipulation;
@@ -108,7 +108,7 @@ button{
   z-index:1;
 }
 
-/* NO (on top when blocking) */
+/* NO */
 #no{
   background:#adb5bd;
   color:#fff;
@@ -178,51 +178,58 @@ const card   = document.getElementById("card");
 
 let phase = "BLOCK";
 let timer = null;
-let noClicks = 0;
+let attempts = 0;
+const MAX_TRIES = 3;
 
-/* ===== UTIL ===== */
+// Adaptive GAP durations (ms)
+const GAP_TIMES = [420, 650, 900]; // gets easier
+
 function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
 function blockYes(){ yesBtn.style.pointerEvents="none"; }
 function allowYes(){ yesBtn.style.pointerEvents="auto"; }
 
-/* Force NO fully outside YES safe zone */
-function safeSetNo(x,y){
-  const a = arena.getBoundingClientRect();
+function setNo(x,y){
+  const a=arena.getBoundingClientRect();
   noBtn.style.left = clamp(x,10,a.width-noBtn.offsetWidth-10)+"px";
   noBtn.style.top  = clamp(y,10,a.height-noBtn.offsetHeight-10)+"px";
 }
 
 /* BLOCK: NO covers YES */
 function placeOverYes(){
-  const y = yesBtn.getBoundingClientRect();
-  const a = arena.getBoundingClientRect();
-
-  safeSetNo(
+  const y=yesBtn.getBoundingClientRect();
+  const a=arena.getBoundingClientRect();
+  setNo(
     (y.left-a.left)+(y.width-noBtn.offsetWidth)/2,
     (y.top-a.top)+(y.height-noBtn.offsetHeight)/2
   );
   blockYes();
 }
 
-/* GAP: move FAR + vertical offset = zero overlap */
+/* GAP: move FAR away */
 function placeGap(){
-  const y = yesBtn.getBoundingClientRect();
-  const a = arena.getBoundingClientRect();
-
+  const y=yesBtn.getBoundingClientRect();
+  const a=arena.getBoundingClientRect();
   const side = Math.random()<0.5 ? -1 : 1;
-  const horizontal = 300 + Math.random()*40;   // MUCH further
-  const vertical   = 60  + Math.random()*30;   // vertical separation
 
-  safeSetNo(
-    (y.left-a.left) + side*horizontal,
-    (y.top-a.top)  + vertical
+  setNo(
+    (y.left-a.left)+side*(320),
+    (y.top-a.top)+80
   );
 
-  /* Allow YES slightly early for touch reliability */
-  setTimeout(allowYes, 80);
+  allowYes();
 }
 
-/* HARD MODE LOOP */
+/* Warnings */
+function warn(){
+  if(attempts === 1){
+    alert("😳 Careful ah… you almost missed it.\nYou still have 2 tries.");
+  }
+  if(attempts === 2){
+    alert("🚨 LAST WARNING.\nIf you miss this one, the date is cancelled.\nPLEASE PRESS YES PROPERLY.");
+  }
+}
+
+/* HARD MODE LOOP WITH ADAPTIVE GAP */
 function loop(){
   if(phase==="BLOCK"){
     placeOverYes();
@@ -231,26 +238,27 @@ function loop(){
   } else {
     placeGap();
     phase="BLOCK";
-    timer=setTimeout(loop,420);   // slightly longer GAP for human reaction
+
+    const gapTime = GAP_TIMES[Math.min(attempts, GAP_TIMES.length-1)];
+
+    timer=setTimeout(()=>{
+      // If YES not clicked during GAP, count as failure
+      attempts++;
+      if(attempts < MAX_TRIES){
+        warn();
+        loop();
+      } else {
+        card.innerHTML=`
+          <h1 style="color:#888;">Date Cancelled</h1>
+          <p>You missed all 3 chances 😔</p>
+          <p style="color:#666;">dont anyhow press next time</p>
+        `;
+      }
+    }, gapTime);
   }
 }
 
-setTimeout(()=>{ placeOverYes(); loop(); },100);
-
-/* NO click logic */
-noBtn.addEventListener("click",()=>{
-  noClicks++;
-  if(noClicks===1){
-    alert("⚠️ If you click NO again, the restaurant date will be cancelled automatically.\n\nYou can try again.");
-  } else {
-    clearTimeout(timer);
-    card.innerHTML=`
-      <h1 style="color:#888;">Date Cancelled</h1>
-      <p>Le Petit Paris reservation cancelled.</p>
-      <p style="color:#666;">dont anyhow press next time 😔</p>
-    `;
-  }
-});
+setTimeout(()=>{ placeOverYes(); loop(); },120);
 
 /* YES click */
 function hearts(){
