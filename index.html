@@ -14,24 +14,18 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       overflow: hidden;
       background: #000;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    /* BACKGROUND SLIDESHOW */
-    .slideshow {
-      position: fixed;
-      inset: 0;
-      z-index: -3;
-    }
-
+    /* BACKGROUND SLIDESHOW (5 images) */
+    .slideshow { position: fixed; inset: 0; z-index: -3; }
     .slide {
-      position: absolute;
-      inset: 0;
+      position: absolute; inset: 0;
       background-size: cover;
       background-position: center;
       opacity: 0;
       animation: fade 40s infinite;
     }
-
     .slide:nth-child(1) { background-image: url("bg1.jpg"); animation-delay: 0s; }
     .slide:nth-child(2) { background-image: url("bg2.jpg"); animation-delay: 8s; }
     .slide:nth-child(3) { background-image: url("bg3.jpg"); animation-delay: 16s; }
@@ -46,14 +40,8 @@
       100% { opacity: 0; }
     }
 
-    .overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.38);
-      z-index: -2;
-    }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.38); z-index: -2; }
 
-    /* CONTENT */
     .container {
       min-height: 100svh;
       display: grid;
@@ -85,7 +73,7 @@
 
     .buttons {
       position: relative;
-      height: 170px;
+      height: 175px;
       max-width: 420px;
       margin: 12px auto 0;
     }
@@ -118,7 +106,8 @@
       color: #fff;
       position: absolute;
       top: 22px;
-      z-index: 1;
+      z-index: 6;
+      transition: left 120ms linear, top 120ms linear;
     }
 
     .note {
@@ -134,7 +123,6 @@
       animation: float 2.8s ease-out forwards;
       pointer-events: none;
     }
-
     @keyframes float {
       0% { opacity: 1; transform: translateY(0) scale(1); }
       100% { opacity: 0; transform: translateY(-140px) scale(1.6); }
@@ -155,7 +143,6 @@
 </head>
 
 <body>
-
   <div class="slideshow">
     <div class="slide"></div>
     <div class="slide"></div>
@@ -175,38 +162,98 @@
         <button id="no">NO 🙃</button>
       </div>
 
-      <div class="note">this feels risky… 😳</div>
+      <div class="note">careful, dont anyhow press wrong ah bao</div>
     </div>
   </div>
 
   <script>
     const yesBtn = document.getElementById("yes");
-    const noBtn = document.getElementById("no");
-    const arena = document.getElementById("arena");
-    const card = document.getElementById("card");
+    const noBtn  = document.getElementById("no");
+    const arena  = document.getElementById("arena");
+    const card   = document.getElementById("card");
 
-    function moveNoNearYes() {
-      const y = yesBtn.getBoundingClientRect();
+    let timer = null;
+    let phase = "BLOCK"; // BLOCK or GAP
+    let noClicks = 0;
+
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+    function setNoPos(x, y) {
       const a = arena.getBoundingClientRect();
-      const dx = Math.random() * 80 - 40;
-      const dy = Math.random() * 50 + 10;
-
-      let x = y.left - a.left + dx;
-      let yy = y.top - a.top + dy;
-
-      x = Math.max(10, Math.min(x, a.width - noBtn.offsetWidth - 10));
-      yy = Math.max(10, Math.min(yy, a.height - noBtn.offsetHeight - 10));
-
+      x = clamp(x, 10, a.width  - noBtn.offsetWidth  - 10);
+      y = clamp(y, 10, a.height - noBtn.offsetHeight - 10);
       noBtn.style.left = x + "px";
-      noBtn.style.top = yy + "px";
+      noBtn.style.top  = y + "px";
     }
 
-    moveNoNearYes();
-    noBtn.addEventListener("mouseover", moveNoNearYes);
-    noBtn.addEventListener("touchstart", e => {
+    function placeNoOverYes() {
+      const y = yesBtn.getBoundingClientRect();
+      const a = arena.getBoundingClientRect();
+      const jitterX = Math.random() * 20 - 10;
+      const jitterY = Math.random() * 14 - 7;
+
+      const x = (y.left - a.left) + (y.width - noBtn.offsetWidth)/2 + jitterX;
+      const yy = (y.top - a.top) + (y.height - noBtn.offsetHeight)/2 + jitterY;
+      setNoPos(x, yy);
+    }
+
+    function placeNoGapNearYes() {
+      const y = yesBtn.getBoundingClientRect();
+      const a = arena.getBoundingClientRect();
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dx = side * (130 + Math.random() * 60); // HARD mode gap
+      const dy = Math.random() * 40 - 10;
+
+      const x = (y.left - a.left) + dx;
+      const yy = (y.top - a.top) + dy;
+      setNoPos(x, yy);
+    }
+
+    function loop() {
+      const blockMs = 2300 + Math.random() * 300; // HARD
+      const gapMs   = 350  + Math.random() * 120; // HARD
+
+      if (phase === "BLOCK") {
+        placeNoOverYes();
+        phase = "GAP";
+        timer = setTimeout(loop, blockMs);
+      } else {
+        placeNoGapNearYes();
+        phase = "BLOCK";
+        timer = setTimeout(loop, gapMs);
+      }
+    }
+
+    setTimeout(() => {
+      placeNoOverYes();
+      loop();
+    }, 80);
+
+    noBtn.addEventListener("mouseover", () => {
+      placeNoOverYes();
+      phase = "GAP";
+    });
+
+    noBtn.addEventListener("touchstart", (e) => {
       e.preventDefault();
-      moveNoNearYes();
-    }, { passive:false });
+      placeNoOverYes();
+      phase = "GAP";
+    }, { passive: false });
+
+    noBtn.addEventListener("click", () => {
+      noClicks += 1;
+
+      if (noClicks === 1) {
+        alert("⚠️ If you click NO again, the restaurant date will be cancelled automatically.\n\nYou can try again.");
+      } else {
+        if (timer) clearTimeout(timer);
+        card.innerHTML = `
+          <h1 style="color:#999;">Date Cancelled</h1>
+          <p>The reservation at <strong>Le Petit Paris</strong> has been cancelled.</p>
+          <p style="color:#777;">(Next time don’t anyhow press 😔)</p>
+        `;
+      }
+    });
 
     function releaseHearts() {
       for (let i = 0; i < 18; i++) {
@@ -221,6 +268,8 @@
     }
 
     yesBtn.addEventListener("click", () => {
+      if (timer) clearTimeout(timer);
+
       releaseHearts();
       card.innerHTML = `
         <h1>💘 It’s a Date 💘</h1>
@@ -237,7 +286,11 @@
         <p style="margin-top:14px;color:#888;">– Bryan</p>
       `;
     });
-  </script>
 
+    window.addEventListener("resize", () => {
+      if (phase === "BLOCK") placeNoOverYes();
+      else placeNoGapNearYes();
+    });
+  </script>
 </body>
 </html>
