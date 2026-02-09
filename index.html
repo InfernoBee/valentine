@@ -17,7 +17,7 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* BACKGROUND SLIDESHOW (5 images) */
+    /* BACKGROUND */
     .slideshow { position: fixed; inset: 0; z-index: -3; }
     .slide {
       position: absolute; inset: 0;
@@ -33,14 +33,12 @@
     .slide:nth-child(5) { background-image: url("bg5.jpg"); animation-delay: 32s; }
 
     @keyframes fade {
-      0% { opacity: 0; }
-      10% { opacity: 1; }
-      40% { opacity: 1; }
+      0%,100% { opacity: 0; }
+      10%,40% { opacity: 1; }
       50% { opacity: 0; }
-      100% { opacity: 0; }
     }
 
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.38); z-index: -2; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: -2; }
 
     .container {
       min-height: 100svh;
@@ -51,7 +49,7 @@
 
     .card {
       width: min(520px, 100%);
-      background: rgba(255,255,255,0.96);
+      background: rgba(255,255,255,.96);
       border-radius: 26px;
       padding: 28px 22px 32px;
       text-align: center;
@@ -59,21 +57,12 @@
       position: relative;
     }
 
-    h1 {
-      margin: 6px 0 10px;
-      font-size: clamp(26px, 5vw, 36px);
-      color: #d6336c;
-    }
-
-    p {
-      margin: 0 0 16px;
-      font-size: clamp(15px, 3.6vw, 18px);
-      color: #555;
-    }
+    h1 { margin: 6px 0 10px; font-size: 34px; color: #d6336c; }
+    p { margin: 0 0 16px; font-size: 17px; color: #555; }
 
     .buttons {
       position: relative;
-      height: 175px;
+      height: 180px;
       max-width: 420px;
       margin: 12px auto 0;
     }
@@ -84,7 +73,6 @@
       padding: 14px 22px;
       font-size: 18px;
       font-weight: 650;
-      cursor: pointer;
       min-width: 150px;
       box-shadow: 0 10px 18px rgba(0,0,0,.14);
       user-select: none;
@@ -93,21 +81,20 @@
 
     #yes {
       background: #ff4d6d;
-      color: #fff;
+      color: white;
       position: absolute;
       left: 50%;
+      top: 24px;
       transform: translateX(-50%);
-      top: 22px;
       z-index: 2;
     }
 
     #no {
       background: #adb5bd;
-      color: #fff;
+      color: white;
       position: absolute;
-      top: 22px;
-      z-index: 6;
-      transition: left 120ms linear, top 120ms linear;
+      top: 24px;
+      z-index: 9999; /* ALWAYS FRONT */
     }
 
     .note {
@@ -115,40 +102,13 @@
       font-size: 13px;
       color: #888;
     }
-
-    /* HEART CONFETTI */
-    .heart {
-      position: fixed;
-      font-size: 22px;
-      animation: float 2.8s ease-out forwards;
-      pointer-events: none;
-    }
-    @keyframes float {
-      0% { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-140px) scale(1.6); }
-    }
-
-    .map-btn {
-      display: inline-block;
-      margin-top: 14px;
-      padding: 12px 18px;
-      background: #ff4d6d;
-      color: white;
-      border-radius: 999px;
-      text-decoration: none;
-      font-weight: 600;
-      box-shadow: 0 10px 18px rgba(0,0,0,.18);
-    }
   </style>
 </head>
 
 <body>
   <div class="slideshow">
-    <div class="slide"></div>
-    <div class="slide"></div>
-    <div class="slide"></div>
-    <div class="slide"></div>
-    <div class="slide"></div>
+    <div class="slide"></div><div class="slide"></div><div class="slide"></div>
+    <div class="slide"></div><div class="slide"></div>
   </div>
   <div class="overlay"></div>
 
@@ -172,55 +132,58 @@
     const arena  = document.getElementById("arena");
     const card   = document.getElementById("card");
 
+    let phase = "BLOCK";
     let timer = null;
-    let phase = "BLOCK"; // BLOCK or GAP
     let noClicks = 0;
 
     function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
     function setNoPos(x, y) {
       const a = arena.getBoundingClientRect();
-      x = clamp(x, 10, a.width  - noBtn.offsetWidth  - 10);
+      x = clamp(x, 10, a.width - noBtn.offsetWidth - 10);
       y = clamp(y, 10, a.height - noBtn.offsetHeight - 10);
       noBtn.style.left = x + "px";
       noBtn.style.top  = y + "px";
     }
 
+    function blockYes() {
+      yesBtn.style.pointerEvents = "none";
+    }
+
+    function allowYes() {
+      yesBtn.style.pointerEvents = "auto";
+    }
+
     function placeNoOverYes() {
       const y = yesBtn.getBoundingClientRect();
       const a = arena.getBoundingClientRect();
-      const jitterX = Math.random() * 20 - 10;
-      const jitterY = Math.random() * 14 - 7;
-
-      const x = (y.left - a.left) + (y.width - noBtn.offsetWidth)/2 + jitterX;
-      const yy = (y.top - a.top) + (y.height - noBtn.offsetHeight)/2 + jitterY;
-      setNoPos(x, yy);
+      setNoPos(
+        (y.left - a.left) + (y.width - noBtn.offsetWidth)/2,
+        (y.top  - a.top)  + (y.height - noBtn.offsetHeight)/2
+      );
+      blockYes();
     }
 
-    function placeNoGapNearYes() {
+    function placeGap() {
       const y = yesBtn.getBoundingClientRect();
       const a = arena.getBoundingClientRect();
       const side = Math.random() < 0.5 ? -1 : 1;
-      const dx = side * (130 + Math.random() * 60); // HARD mode gap
-      const dy = Math.random() * 40 - 10;
-
-      const x = (y.left - a.left) + dx;
-      const yy = (y.top - a.top) + dy;
-      setNoPos(x, yy);
+      setNoPos(
+        (y.left - a.left) + side * (140 + Math.random() * 40),
+        (y.top  - a.top)  + (Math.random() * 30 - 10)
+      );
+      allowYes();
     }
 
     function loop() {
-      const blockMs = 2300 + Math.random() * 300; // HARD
-      const gapMs   = 350  + Math.random() * 120; // HARD
-
       if (phase === "BLOCK") {
         placeNoOverYes();
         phase = "GAP";
-        timer = setTimeout(loop, blockMs);
+        timer = setTimeout(loop, 2300); // HARD
       } else {
-        placeNoGapNearYes();
+        placeGap();
         phase = "BLOCK";
-        timer = setTimeout(loop, gapMs);
+        timer = setTimeout(loop, 350); // HARD GAP
       }
     }
 
@@ -229,20 +192,8 @@
       loop();
     }, 80);
 
-    noBtn.addEventListener("mouseover", () => {
-      placeNoOverYes();
-      phase = "GAP";
-    });
-
-    noBtn.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      placeNoOverYes();
-      phase = "GAP";
-    }, { passive: false });
-
     noBtn.addEventListener("click", () => {
-      noClicks += 1;
-
+      noClicks++;
       if (noClicks === 1) {
         alert("⚠️ If you click NO again, the restaurant date will be cancelled automatically.\n\nYou can try again.");
       } else {
@@ -250,46 +201,22 @@
         card.innerHTML = `
           <h1 style="color:#999;">Date Cancelled</h1>
           <p>The reservation at <strong>Le Petit Paris</strong> has been cancelled.</p>
-          <p style="color:#777;">(Next time don’t anyhow press 😔)</p>
+          <p style="color:#777;">(dont anyhow press next time 😔)</p>
         `;
       }
     });
 
-    function releaseHearts() {
-      for (let i = 0; i < 18; i++) {
-        const h = document.createElement("div");
-        h.className = "heart";
-        h.textContent = "💖";
-        h.style.left = Math.random() * 100 + "vw";
-        h.style.top = "60vh";
-        document.body.appendChild(h);
-        setTimeout(() => h.remove(), 3000);
-      }
-    }
-
     yesBtn.addEventListener("click", () => {
       if (timer) clearTimeout(timer);
-
-      releaseHearts();
       card.innerHTML = `
         <h1>💘 It’s a Date 💘</h1>
         <p><strong>14 February</strong></p>
         <p>Dinner at <strong>Le Petit Paris</strong></p>
         <p style="font-size:15px;color:#666;">
-          15 Swan Lake Avenue<br>
-          Opera Estate, Singapore 455711
+          15 Swan Lake Avenue<br>Opera Estate, Singapore 455711
         </p>
-        <a class="map-btn" target="_blank"
-           href="https://www.google.com/maps/search/?api=1&query=Le+Petit+Paris+15+Swan+Lake+Avenue+Singapore">
-          📍 Open in Google Maps
-        </a>
-        <p style="margin-top:14px;color:#888;">– Bryan</p>
+        <p style="color:#888;">– Bryan</p>
       `;
-    });
-
-    window.addEventListener("resize", () => {
-      if (phase === "BLOCK") placeNoOverYes();
-      else placeNoGapNearYes();
     });
   </script>
 </body>
