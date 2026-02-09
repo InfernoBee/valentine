@@ -16,27 +16,34 @@
       background: #000;
     }
 
-    /* Slideshow */
+    /* BACKGROUND SLIDESHOW */
     .slideshow {
       position: fixed;
       inset: 0;
       z-index: -3;
     }
+
     .slide {
       position: absolute;
       inset: 0;
       background-size: cover;
       background-position: center;
       opacity: 0;
-      animation: fade 16s infinite;
+      animation: fade 40s infinite;
     }
+
     .slide:nth-child(1) { background-image: url("bg1.jpg"); animation-delay: 0s; }
     .slide:nth-child(2) { background-image: url("bg2.jpg"); animation-delay: 8s; }
+    .slide:nth-child(3) { background-image: url("bg3.jpg"); animation-delay: 16s; }
+    .slide:nth-child(4) { background-image: url("bg4.jpg"); animation-delay: 24s; }
+    .slide:nth-child(5) { background-image: url("bg5.jpg"); animation-delay: 32s; }
 
     @keyframes fade {
-      0%,100% { opacity: 0; }
-      10%,40% { opacity: 1; }
+      0% { opacity: 0; }
+      10% { opacity: 1; }
+      40% { opacity: 1; }
       50% { opacity: 0; }
+      100% { opacity: 0; }
     }
 
     .overlay {
@@ -46,6 +53,7 @@
       z-index: -2;
     }
 
+    /* CONTENT */
     .container {
       min-height: 100svh;
       display: grid;
@@ -119,7 +127,7 @@
       color: #888;
     }
 
-    /* Hearts */
+    /* HEART CONFETTI */
     .heart {
       position: fixed;
       font-size: 22px;
@@ -149,12 +157,12 @@
 <body>
 
   <div class="slideshow">
-  <div class="slide"></div>
-  <div class="slide"></div>
-  <div class="slide"></div>
-  <div class="slide"></div>
-  <div class="slide"></div>
-</div>
+    <div class="slide"></div>
+    <div class="slide"></div>
+    <div class="slide"></div>
+    <div class="slide"></div>
+    <div class="slide"></div>
+  </div>
   <div class="overlay"></div>
 
   <div class="container">
