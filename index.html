@@ -58,7 +58,10 @@ button{
 }
 
 #yes{background:#ff4d6d; color:#fff; z-index:1}
-#no{background:#adb5bd; color:#fff; z-index:3; transition:left 160ms linear, top 160ms linear}
+#no{
+  background:#adb5bd; color:#fff; z-index:3;
+  transition:left 140ms linear, top 140ms linear;
+}
 
 .note{margin-top:12px; font-size:13px; color:#444}
 </style>
@@ -90,43 +93,58 @@ const yesBtn = document.getElementById("yes");
 const noBtn  = document.getElementById("no");
 const card   = document.getElementById("card");
 
-/* --------- Game state --------- */
-let noClicks = 0;     // 0 -> try1, 1 -> try2, 2 -> try3
-let mode = "ERRATIC"; // ERRATIC | SLOW | STATIC
-let phase = "BLOCK";  // BLOCK | GAP
-let gapUntil = 0;     // timestamp (ms) until which GAP remains active
+/* --------- State --------- */
 let running = true;
 
-/* YES motion state */
+let noClicks = 0;          // 0 -> try1, 1 -> try2, 2 -> try3
+let mode = "ERRATIC";      // ERRATIC | SLOW | STATIC
+
+let phase = "BLOCK";       // BLOCK | GAP
+let gapUntil = 0;          // timestamp when GAP ends (no auto-fail; only controls blocker visibility)
+
+/* YES motion */
 let yesX=0, yesY=0, vx=0, vy=0, tx=0, ty=0, last=0;
 
+/* NO position is STATEFUL now */
+let noX=0, noY=0;
+
 /* --------- Helpers --------- */
-function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
+function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
 function metrics(){
   const a = arena.getBoundingClientRect();
   const yw = yesBtn.offsetWidth, yh = yesBtn.offsetHeight;
+  const nw = noBtn.offsetWidth,  nh = noBtn.offsetHeight;
+
+  // Inner bounds for YES
   const padX=36, padTop=18, padBottom=26;
+
   return {
-    aw:a.width, ah:a.height, yw, yh,
-    minX: padX,
-    maxX: Math.max(padX, a.width - yw - padX),
-    minY: padTop,
-    maxY: Math.max(padTop, a.height - yh - padBottom)
+    aw:a.width, ah:a.height,
+    yw, yh, nw, nh,
+    yMinX: padX,
+    yMaxX: Math.max(padX, a.width - yw - padX),
+    yMinY: padTop,
+    yMaxY: Math.max(padTop, a.height - yh - padBottom),
+    // Absolute clamp for any button
+    bMinX: 10,
+    bMaxX: Math.max(10, a.width - 10),
+    bMinY: 10,
+    bMaxY: Math.max(10, a.height - 10),
   };
 }
 
-function setBtnPos(btn,x,y){
+function setBtn(btn,x,y){
   const a=arena.getBoundingClientRect(), w=btn.offsetWidth, h=btn.offsetHeight;
-  btn.style.left = clamp(x,10,a.width-w-10)+"px";
-  btn.style.top  = clamp(y,10,a.height-h-10)+"px";
+  const xx=clamp(x,10,a.width-w-10);
+  const yy=clamp(y,10,a.height-h-10);
+  btn.style.left = xx + "px";
+  btn.style.top  = yy + "px";
+  return {x:xx, y:yy};
 }
 
-function randomSpot(m){
-  return {
-    x: m.minX + Math.random()*Math.max(1,(m.maxX-m.minX)),
-    y: m.minY + Math.random()*Math.max(1,(m.maxY-m.minY))
-  };
+function rectsOverlap(ax,ay,aw,ah,bx,by,bw,bh){
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
 
 function setModeFromNoClicks(){
@@ -136,117 +154,175 @@ function setModeFromNoClicks(){
 }
 
 function resetYes(){
-  const m=metrics();
-  yesX = clamp((m.aw-m.yw)/2, m.minX, m.maxX);
-  yesY = clamp(20, m.minY, m.maxY);
+  const m = metrics();
+  yesX = clamp((m.aw - m.yw)/2, m.yMinX, m.yMaxX);
+  yesY = clamp(20, m.yMinY, m.yMaxY);
 
   if(mode==="ERRATIC"){
     vx = (Math.random()*2-1)*420;
     vy = (Math.random()*2-1)*320;
   }
   if(mode==="SLOW"){
-    const s = randomSpot(m);
-    tx=s.x; ty=s.y;
+    const s = randomYesSpot(m);
+    tx = s.x; ty = s.y;
   }
 }
 
-/* NO positioning depending on phase */
-function placeNo(){
-  const m=metrics();
-  if(phase==="BLOCK"){
-    // Cover YES (centered)
-    const nx = yesX + (yesBtn.offsetWidth - noBtn.offsetWidth)/2;
-    const ny = yesY + (yesBtn.offsetHeight - noBtn.offsetHeight)/2;
-    setBtnPos(noBtn,nx,ny);
-    yesBtn.style.pointerEvents="none";
-    noBtn.style.pointerEvents="auto";
-  } else {
-    // GAP: move NO far away (guaranteed not overlapping)
-    const side = Math.random()<0.5 ? -1 : 1;
-    const nx = yesX + side*(380 + Math.random()*60);
-    const ny = yesY + 120 + Math.random()*30;
-    setBtnPos(noBtn,nx,ny);
-    yesBtn.style.pointerEvents="auto";
-    noBtn.style.pointerEvents="auto";
+function randomYesSpot(m){
+  return {
+    x: m.yMinX + Math.random()*Math.max(1,(m.yMaxX-m.yMinX)),
+    y: m.yMinY + Math.random()*Math.max(1,(m.yMaxY-m.yMinY))
+  };
+}
+
+/* --------- NO placement --------- */
+function coverYes(){
+  // Cover YES centered
+  noX = yesX + (yesBtn.offsetWidth - noBtn.offsetWidth)/2;
+  noY = yesY + (yesBtn.offsetHeight - noBtn.offsetHeight)/2;
+}
+
+function pickSafeNoPosition(){
+  const m = metrics();
+
+  // Try several candidates far away, ensure NO does NOT overlap YES.
+  // Also ensure it’s “far” by preference.
+  const candidates = [];
+  const farDistances = [420, 360, 300, 240];
+
+  for(const d of farDistances){
+    for(let i=0;i<12;i++){
+      const side = Math.random()<0.5 ? -1 : 1;
+      const cx = yesX + side*(d + Math.random()*60);
+      const cy = yesY + 90 + Math.random()*80;
+
+      // Clamp candidate
+      const clamped = clampCandidate(cx, cy, m.nw, m.nh, m.aw, m.ah);
+
+      // Reject if overlaps YES
+      const overlap = rectsOverlap(
+        yesX, yesY, m.yw, m.yh,
+        clamped.x, clamped.y, m.nw, m.nh
+      );
+      if(!overlap) candidates.push(clamped);
+    }
+    if(candidates.length) break;
   }
+
+  // Fallback: put NO in a corner that doesn't overlap
+  if(!candidates.length){
+    const corners = [
+      {x: 10, y: 10},
+      {x: m.aw - m.nw - 10, y: 10},
+      {x: 10, y: m.ah - m.nh - 10},
+      {x: m.aw - m.nw - 10, y: m.ah - m.nh - 10},
+    ];
+    for(const c of corners){
+      if(!rectsOverlap(yesX, yesY, m.yw, m.yh, c.x, c.y, m.nw, m.nh)){
+        noX=c.x; noY=c.y; return;
+      }
+    }
+    // absolute last resort: shift right
+    noX = clamp(yesX + m.yw + 20, 10, m.aw - m.nw - 10);
+    noY = clamp(yesY, 10, m.ah - m.nh - 10);
+    return;
+  }
+
+  const pick = candidates[Math.floor(Math.random()*candidates.length)];
+  noX = pick.x; noY = pick.y;
 }
 
-function applyYes(){
-  setBtnPos(yesBtn, yesX, yesY);
+function clampCandidate(x,y,w,h,aw,ah){
+  return {
+    x: clamp(x, 10, aw - w - 10),
+    y: clamp(y, 10, ah - h - 10)
+  };
 }
 
-/* --------- GAP trigger (no auto-fail) --------- */
-function openGap(ms){
+/* --------- Phase control --------- */
+function enterBlock(){
+  phase="BLOCK";
+  coverYes();
+  yesBtn.style.pointerEvents="none";
+}
+
+function enterGap(ms){
   phase="GAP";
-  gapUntil = Math.max(gapUntil, performance.now() + ms);
-  placeNo();
+  gapUntil = performance.now() + ms;
+  pickSafeNoPosition();
+  yesBtn.style.pointerEvents="auto";
 }
 
-/* --------- Animation loop --------- */
+/* --------- Render --------- */
+function render(){
+  setBtn(yesBtn, yesX, yesY);
+  setBtn(noBtn,  noX,  noY);
+}
+
+/* --------- Main loop --------- */
 function tick(ts){
   if(!running) return;
   if(!last) last=ts;
   const dt = Math.min(40, ts-last)/1000;
   last=ts;
 
-  // Handle GAP expiration
+  // expire GAP back to BLOCK
   if(phase==="GAP" && ts >= gapUntil){
-    phase="BLOCK";
-    placeNo();
+    enterBlock();
   }
 
-  const m=metrics();
+  const m = metrics();
 
-  // YES motion (always moves; only NO blocks interaction during BLOCK)
+  // YES motion continues regardless of phase (only pointerEvents changes)
   if(mode==="ERRATIC"){
     vx += (Math.random()*2-1)*700*dt;
     vy += (Math.random()*2-1)*700*dt;
     const sp=Math.hypot(vx,vy), maxSp=700;
     if(sp>maxSp){ vx*=maxSp/sp; vy*=maxSp/sp; }
+
     yesX += vx*dt;
     yesY += vy*dt;
 
-    // bounce within inner bounds
-    if(yesX<m.minX){ yesX=m.minX; vx*=-0.92; }
-    if(yesX>m.maxX){ yesX=m.maxX; vx*=-0.92; }
-    if(yesY<m.minY){ yesY=m.minY; vy*=-0.92; }
-    if(yesY>m.maxY){ yesY=m.maxY; vy*=-0.92; }
+    if(yesX<m.yMinX){ yesX=m.yMinX; vx*=-0.92; }
+    if(yesX>m.yMaxX){ yesX=m.yMaxX; vx*=-0.92; }
+    if(yesY<m.yMinY){ yesY=m.yMinY; vy*=-0.92; }
+    if(yesY>m.yMaxY){ yesY=m.yMaxY; vy*=-0.92; }
   } else if(mode==="SLOW"){
     const dx=tx-yesX, dy=ty-yesY, d=Math.hypot(dx,dy);
     if(d<10){
-      const s=randomSpot(m); tx=s.x; ty=s.y;
+      const s=randomYesSpot(m); tx=s.x; ty=s.y;
     } else {
       const speed=120;
       yesX += (dx/d)*speed*dt;
       yesY += (dy/d)*speed*dt;
-      yesX=clamp(yesX,m.minX,m.maxX);
-      yesY=clamp(yesY,m.minY,m.maxY);
+      yesX=clamp(yesX,m.yMinX,m.yMaxX);
+      yesY=clamp(yesY,m.yMinY,m.yMaxY);
     }
   } else {
-    // STATIC
-    yesX = clamp((m.aw-m.yw)/2, m.minX, m.maxX);
-    yesY = clamp(20, m.minY, m.maxY);
+    yesX = clamp((m.aw-m.yw)/2, m.yMinX, m.yMaxX);
+    yesY = clamp(20, m.yMinY, m.yMaxY);
   }
 
-  applyYes();
-  // Keep NO tracking in BLOCK (covering the moving YES); in GAP it stays away
-  placeNo();
+  // Update NO based on phase:
+  if(phase==="BLOCK"){
+    coverYes();
+  } // in GAP, NO stays frozen at safe position
 
+  render();
   requestAnimationFrame(tick);
 }
 
-/* --------- Interaction rules --------- */
-/* When she taps NO while blocking, give her a GAP window (no penalty) */
+/* --------- Click logic --------- */
 noBtn.addEventListener("click", () => {
   if(!running) return;
 
-  // If currently blocking, treat this click as "attempt" -> open GAP so she can press YES
   if(phase==="BLOCK"){
-    openGap(900); // you can tune this (e.g. 700–1200ms)
+    // This means she tried to tap YES but hit NO. Give her a GAP.
+    enterGap(900); // adjust to taste: 700 (hard) to 1200 (easy)
     return;
   }
 
-  // If she clicks NO during GAP, count it as an actual NO choice (3 strikes)
+  // If she clicks NO during GAP, count as real "NO"
   noClicks++;
 
   if(noClicks===1){
@@ -265,12 +341,9 @@ noBtn.addEventListener("click", () => {
 
   setModeFromNoClicks();
   resetYes();
-  // keep it challenging: go back to BLOCK after a real NO click
-  phase="BLOCK";
-  placeNo();
+  enterBlock();
 });
 
-/* YES works only during GAP (because pointer-events is disabled during BLOCK) */
 yesBtn.addEventListener("click", () => {
   if(!running) return;
   running=false;
@@ -290,18 +363,18 @@ yesBtn.addEventListener("click", () => {
 window.addEventListener("load", () => {
   setModeFromNoClicks();
   resetYes();
-  // start in BLOCK
-  phase="BLOCK";
-  placeNo();
+  enterBlock();
+  render();
   requestAnimationFrame(tick);
 });
 
 window.addEventListener("resize", () => {
   const m=metrics();
-  yesX=clamp(yesX,m.minX,m.maxX);
-  yesY=clamp(yesY,m.minY,m.maxY);
-  applyYes();
-  placeNo();
+  yesX=clamp(yesX,m.yMinX,m.yMaxX);
+  yesY=clamp(yesY,m.yMinY,m.yMaxY);
+  if(phase==="BLOCK") coverYes();
+  else pickSafeNoPosition();
+  render();
 });
 </script>
 </body>
