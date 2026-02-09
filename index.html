@@ -6,43 +6,38 @@
 <title>Valentine?</title>
 
 <style>
-* { box-sizing: border-box; }
+*{box-sizing:border-box}
 
-body {
-  margin: 0;
-  min-height: 100svh;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  overflow: hidden;
-  background: #000;
-  -webkit-tap-highlight-color: transparent;
+body{
+  margin:0;
+  min-height:100svh;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  overflow:hidden;
+  background:#000;
+  -webkit-tap-highlight-color:transparent;
 }
 
 /* ===== BACKGROUND SLIDESHOW ===== */
-.slideshow {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
+.slideshow{position:fixed; inset:0; z-index:-1}
+.slide{
+  position:absolute; inset:0;
+  background-size:cover;
+  background-position:center;
+  opacity:0;
+  animation:fade 40s infinite;
 }
-.slide {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  opacity: 0;
-  animation: fade 40s infinite;
-}
-.slide:nth-child(1){ background-image:url("bg1.jpg"); animation-delay:0s;}
-.slide:nth-child(2){ background-image:url("bg2.jpg"); animation-delay:8s;}
-.slide:nth-child(3){ background-image:url("bg3.jpg"); animation-delay:16s;}
-.slide:nth-child(4){ background-image:url("bg4.jpg"); animation-delay:24s;}
-.slide:nth-child(5){ background-image:url("bg5.jpg"); animation-delay:32s;}
+.slide:nth-child(1){background-image:url("bg1.jpg"); animation-delay:0s}
+.slide:nth-child(2){background-image:url("bg2.jpg"); animation-delay:8s}
+.slide:nth-child(3){background-image:url("bg3.jpg"); animation-delay:16s}
+.slide:nth-child(4){background-image:url("bg4.jpg"); animation-delay:24s}
+.slide:nth-child(5){background-image:url("bg5.jpg"); animation-delay:32s}
 
-@keyframes fade {
-  0%{opacity:0;}
-  10%{opacity:1;}
-  40%{opacity:1;}
-  50%{opacity:0;}
-  100%{opacity:0;}
+@keyframes fade{
+  0%{opacity:0}
+  10%{opacity:1}
+  40%{opacity:1}
+  50%{opacity:0}
+  100%{opacity:0}
 }
 
 /* ===== UI ===== */
@@ -53,34 +48,23 @@ body {
   padding:16px;
 }
 
-/* GLASS CARD */
 .card{
   width:min(520px,100%);
   background:rgba(255,255,255,0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
   border-radius:26px;
   padding:22px 20px 26px;
   text-align:center;
   box-shadow:0 20px 45px rgba(0,0,0,.25);
 }
 
-h1{
-  margin:6px 0 8px;
-  font-size:34px;
-  color:#d6336c;
-}
+h1{margin:6px 0 8px; font-size:34px; color:#d6336c}
+p{margin:0 0 14px; font-size:17px; color:#333}
 
-p{
-  margin:0 0 14px;
-  font-size:17px;
-  color:#333;
-}
-
-/* ===== BUTTON ARENA ===== */
 .buttons{
   position:relative;
-  height:170px;
+  height:190px;
   max-width:420px;
   margin:10px auto 0;
 }
@@ -97,34 +81,28 @@ button{
   touch-action:manipulation;
 }
 
-/* YES */
 #yes{
   background:#ff4d6d;
   color:#fff;
   position:absolute;
   left:50%;
-  top:24px;
+  top:28px;
   transform:translateX(-50%);
   z-index:1;
 }
 
-/* NO */
 #no{
   background:#adb5bd;
   color:#fff;
   position:absolute;
-  top:24px;
+  top:28px;
   z-index:3;
   transition:left 140ms linear, top 140ms linear;
 }
 
-.note{
-  margin-top:12px;
-  font-size:13px;
-  color:#444;
-}
+.note{margin-top:12px; font-size:13px; color:#444}
 
-/* HEARTS */
+/* Hearts */
 .heart{
   position:fixed;
   font-size:22px;
@@ -132,8 +110,8 @@ button{
   animation:float 2.8s ease-out forwards;
 }
 @keyframes float{
-  0%{opacity:1; transform:translateY(0) scale(1);}
-  100%{opacity:0; transform:translateY(-140px) scale(1.6);}
+  0%{opacity:1; transform:translateY(0) scale(1)}
+  100%{opacity:0; transform:translateY(-140px) scale(1.6)}
 }
 
 .map-btn{
@@ -171,96 +149,132 @@ button{
 </div>
 
 <script>
-const yesBtn = document.getElementById("yes");
-const noBtn  = document.getElementById("no");
-const arena  = document.getElementById("arena");
-const card   = document.getElementById("card");
+const yesBtn=document.getElementById("yes");
+const noBtn=document.getElementById("no");
+const arena=document.getElementById("arena");
+const card=document.getElementById("card");
 
-let phase = "BLOCK";
-let timer = null;
-let attempts = 0;
-const MAX_TRIES = 3;
+let phase="BLOCK";
+let timer=null;
+let tries=0;
+const MAX_TRIES=3;
 
-// Adaptive GAP durations (ms)
-const GAP_TIMES = [420, 650, 900]; // gets easier
+/* ===== UTILS ===== */
+function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
+function allowYes(){yesBtn.style.pointerEvents="auto"}
+function blockYes(){yesBtn.style.pointerEvents="none"}
 
-function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
-function blockYes(){ yesBtn.style.pointerEvents="none"; }
-function allowYes(){ yesBtn.style.pointerEvents="auto"; }
-
-function setNo(x,y){
+function setBtn(btn,x,y){
   const a=arena.getBoundingClientRect();
-  noBtn.style.left = clamp(x,10,a.width-noBtn.offsetWidth-10)+"px";
-  noBtn.style.top  = clamp(y,10,a.height-noBtn.offsetHeight-10)+"px";
+  btn.style.left=clamp(x,10,a.width-btn.offsetWidth-10)+"px";
+  btn.style.top =clamp(y,10,a.height-btn.offsetHeight-10)+"px";
 }
 
-/* BLOCK: NO covers YES */
-function placeOverYes(){
+/* ===== NO BEHAVIOUR ===== */
+function noOverYes(){
   const y=yesBtn.getBoundingClientRect();
   const a=arena.getBoundingClientRect();
-  setNo(
+  setBtn(noBtn,
     (y.left-a.left)+(y.width-noBtn.offsetWidth)/2,
     (y.top-a.top)+(y.height-noBtn.offsetHeight)/2
   );
   blockYes();
 }
 
-/* GAP: move FAR away */
-function placeGap(){
+function noFarAway(){
   const y=yesBtn.getBoundingClientRect();
   const a=arena.getBoundingClientRect();
-  const side = Math.random()<0.5 ? -1 : 1;
-
-  setNo(
-    (y.left-a.left)+side*(320),
-    (y.top-a.top)+80
+  const side=Math.random()<0.5?-1:1;
+  setBtn(noBtn,
+    (y.left-a.left)+side*(340),
+    (y.top-a.top)+90
   );
-
   allowYes();
 }
 
-/* Warnings */
-function warn(){
-  if(attempts === 1){
-    alert("😳 Careful ah… you almost missed it.\nYou still have 2 tries.");
-  }
-  if(attempts === 2){
-    alert("🚨 LAST WARNING.\nIf you miss this one, the date is cancelled.\nPLEASE PRESS YES PROPERLY.");
+/* ===== YES DIFFICULTY ===== */
+let slowMoveInterval=null;
+
+function yesDodge(e){
+  const a=arena.getBoundingClientRect();
+  const nx=Math.random()*(a.width-yesBtn.offsetWidth);
+  const ny=60+Math.random()*80;
+  setBtn(yesBtn,nx,ny);
+}
+
+function startSlowYes(){
+  stopSlowYes();
+  slowMoveInterval=setInterval(()=>{
+    const a=arena.getBoundingClientRect();
+    const nx=Math.random()*(a.width-yesBtn.offsetWidth);
+    const ny=60+Math.random()*80;
+    setBtn(yesBtn,nx,ny);
+  },1200);
+}
+
+function stopSlowYes(){
+  if(slowMoveInterval){
+    clearInterval(slowMoveInterval);
+    slowMoveInterval=null;
   }
 }
 
-/* HARD MODE LOOP WITH ADAPTIVE GAP */
+/* ===== WARNINGS ===== */
+function warn(){
+  if(tries===1){
+    alert("😳 Careful ah… that was CLOSE.\nYou have 2 tries left.");
+  }
+  if(tries===2){
+    alert("🚨 LAST TRY.\nIf you miss this, the date is cancelled.\nPLEASE PRESS YES.");
+  }
+}
+
+/* ===== LOOP ===== */
 function loop(){
   if(phase==="BLOCK"){
-    placeOverYes();
+    noOverYes();
     phase="GAP";
     timer=setTimeout(loop,2300);
-  } else {
-    placeGap();
+  }else{
+    noFarAway();
+
+    // YES difficulty by try
+    if(tries===0){
+      yesBtn.addEventListener("mouseenter",yesDodge);
+      yesBtn.addEventListener("touchstart",yesDodge,{passive:false});
+    }
+    if(tries===1){
+      yesBtn.removeEventListener("mouseenter",yesDodge);
+      yesBtn.removeEventListener("touchstart",yesDodge);
+      startSlowYes();
+    }
+    if(tries===2){
+      stopSlowYes();
+      yesBtn.style.left="50%";
+      yesBtn.style.transform="translateX(-50%)";
+      yesBtn.style.top="28px";
+    }
+
     phase="BLOCK";
-
-    const gapTime = GAP_TIMES[Math.min(attempts, GAP_TIMES.length-1)];
-
     timer=setTimeout(()=>{
-      // If YES not clicked during GAP, count as failure
-      attempts++;
-      if(attempts < MAX_TRIES){
+      tries++;
+      if(tries<MAX_TRIES){
         warn();
         loop();
-      } else {
+      }else{
         card.innerHTML=`
           <h1 style="color:#888;">Date Cancelled</h1>
           <p>You missed all 3 chances 😔</p>
           <p style="color:#666;">dont anyhow press next time</p>
         `;
       }
-    }, gapTime);
+    }, [300,650,1000][tries] || 1000);
   }
 }
 
-setTimeout(()=>{ placeOverYes(); loop(); },120);
+setTimeout(()=>{noOverYes(); loop()},120);
 
-/* YES click */
+/* ===== YES SUCCESS ===== */
 function hearts(){
   for(let i=0;i<18;i++){
     const h=document.createElement("div");
@@ -275,6 +289,7 @@ function hearts(){
 
 yesBtn.addEventListener("click",()=>{
   clearTimeout(timer);
+  stopSlowYes();
   hearts();
   card.innerHTML=`
     <h1>💘 It’s a Date 💘</h1>
