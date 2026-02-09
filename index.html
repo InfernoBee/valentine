@@ -64,9 +64,10 @@ p{margin:0 0 14px; font-size:17px; color:#333}
 
 .buttons{
   position:relative;
-  height:190px;
+  height:200px;
   max-width:420px;
   margin:10px auto 0;
+  touch-action:manipulation;
 }
 
 button{
@@ -75,19 +76,17 @@ button{
   padding:14px 22px;
   font-size:18px;
   font-weight:650;
-  min-width:160px;
+  min-width:170px;
   cursor:pointer;
   user-select:none;
   touch-action:manipulation;
 }
 
+/* YES/NO are positioned in px via JS for reliability */
 #yes{
   background:#ff4d6d;
   color:#fff;
   position:absolute;
-  left:50%;
-  top:28px;
-  transform:translateX(-50%);
   z-index:1;
 }
 
@@ -95,7 +94,6 @@ button{
   background:#adb5bd;
   color:#fff;
   position:absolute;
-  top:28px;
   z-index:3;
   transition:left 140ms linear, top 140ms linear;
 }
@@ -128,7 +126,6 @@ button{
 </head>
 
 <body>
-
 <div class="slideshow">
   <div class="slide"></div><div class="slide"></div><div class="slide"></div>
   <div class="slide"></div><div class="slide"></div>
@@ -149,149 +146,239 @@ button{
 </div>
 
 <script>
-const yesBtn=document.getElementById("yes");
-const noBtn=document.getElementById("no");
-const arena=document.getElementById("arena");
-const card=document.getElementById("card");
+const arena = document.getElementById("arena");
+const yesBtn = document.getElementById("yes");
+const noBtn = document.getElementById("no");
+const card = document.getElementById("card");
 
-let phase="BLOCK";
-let timer=null;
-let tries=0;
-const MAX_TRIES=3;
+const MAX_TRIES = 3;
 
-/* ===== UTILS ===== */
-function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
-function allowYes(){yesBtn.style.pointerEvents="auto"}
-function blockYes(){yesBtn.style.pointerEvents="none"}
+// Try index means "how many GAPs have been missed so far"
+let misses = 0;
+let phase = "BLOCK";
+let timer = null;
 
-function setBtn(btn,x,y){
-  const a=arena.getBoundingClientRect();
-  btn.style.left=clamp(x,10,a.width-btn.offsetWidth-10)+"px";
-  btn.style.top =clamp(y,10,a.height-btn.offsetHeight-10)+"px";
+// GAP time per miss (try 1 super hard, try 2 medium, try 3 generous)
+const GAP_MS = [220, 600, 1200];
+
+// YES motion state
+let yesMode = "NONE"; // "DODGE" | "SLOW" | "NONE"
+let rafId = null;
+
+// Slow drift parameters
+let slowTarget = { x: 0, y: 0 };
+let slowPos = { x: 0, y: 0 };
+let lastTs = 0;
+
+function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+function rectInArena(btn){
+  const a = arena.getBoundingClientRect();
+  const b = btn.getBoundingClientRect();
+  return {
+    a,
+    x: b.left - a.left,
+    y: b.top - a.top,
+    w: b.width,
+    h: b.height
+  };
 }
 
-/* ===== NO BEHAVIOUR ===== */
+function setBtnPos(btn, x, y){
+  const a = arena.getBoundingClientRect();
+  const w = btn.offsetWidth;
+  const h = btn.offsetHeight;
+  const xx = clamp(x, 10, a.width - w - 10);
+  const yy = clamp(y, 10, a.height - h - 10);
+  btn.style.left = xx + "px";
+  btn.style.top  = yy + "px";
+  return { x: xx, y: yy };
+}
+
+function centerYes(){
+  const a = arena.getBoundingClientRect();
+  const w = yesBtn.offsetWidth;
+  const x = (a.width - w) / 2;
+  const y = 28;
+  setBtnPos(yesBtn, x, y);
+}
+
+/* ===== NO behaviour ===== */
 function noOverYes(){
-  const y=yesBtn.getBoundingClientRect();
-  const a=arena.getBoundingClientRect();
-  setBtn(noBtn,
-    (y.left-a.left)+(y.width-noBtn.offsetWidth)/2,
-    (y.top-a.top)+(y.height-noBtn.offsetHeight)/2
-  );
-  blockYes();
+  const y = rectInArena(yesBtn);
+  setBtnPos(noBtn, y.x + (y.w - noBtn.offsetWidth)/2, y.y + (y.h - noBtn.offsetHeight)/2);
+  yesBtn.style.pointerEvents = "none"; // blocked
 }
 
 function noFarAway(){
-  const y=yesBtn.getBoundingClientRect();
-  const a=arena.getBoundingClientRect();
-  const side=Math.random()<0.5?-1:1;
-  setBtn(noBtn,
-    (y.left-a.left)+side*(340),
-    (y.top-a.top)+90
-  );
-  allowYes();
+  const y = rectInArena(yesBtn);
+  const side = Math.random() < 0.5 ? -1 : 1;
+  const farX = y.x + side * (360 + Math.random()*60);
+  const farY = y.y + 110 + Math.random()*30;
+  setBtnPos(noBtn, farX, farY);
+  yesBtn.style.pointerEvents = "auto"; // tappable
 }
 
-/* ===== YES DIFFICULTY ===== */
-let slowMoveInterval=null;
-
-function yesDodge(e){
-  const a=arena.getBoundingClientRect();
-  const nx=Math.random()*(a.width-yesBtn.offsetWidth);
-  const ny=60+Math.random()*80;
-  setBtn(yesBtn,nx,ny);
+/* ===== YES adaptive motion ===== */
+function stopYesMotion(){
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  arena.removeEventListener("pointermove", onPointerMoveDodge);
+  yesMode = "NONE";
 }
 
-function startSlowYes(){
-  stopSlowYes();
-  slowMoveInterval=setInterval(()=>{
-    const a=arena.getBoundingClientRect();
-    const nx=Math.random()*(a.width-yesBtn.offsetWidth);
-    const ny=60+Math.random()*80;
-    setBtn(yesBtn,nx,ny);
-  },1200);
-}
+function setYesModeForCurrentTry(){
+  stopYesMotion();
+  if (misses === 0) yesMode = "DODGE";      // try 1
+  else if (misses === 1) yesMode = "SLOW";  // try 2
+  else yesMode = "NONE";                    // try 3
 
-function stopSlowYes(){
-  if(slowMoveInterval){
-    clearInterval(slowMoveInterval);
-    slowMoveInterval=null;
+  if (yesMode === "DODGE"){
+    // Proximity-based dodge: works on mobile because pointermove fires while finger moves on screen
+    arena.addEventListener("pointermove", onPointerMoveDodge, { passive: true });
+  } else if (yesMode === "SLOW"){
+    initSlowDrift();
+    rafId = requestAnimationFrame(slowDriftTick);
+  } else {
+    centerYes();
   }
 }
 
-/* ===== WARNINGS ===== */
+function randomYesSpot(){
+  const a = arena.getBoundingClientRect();
+  const w = yesBtn.offsetWidth;
+  const h = yesBtn.offsetHeight;
+  const x = 10 + Math.random() * (a.width - w - 20);
+  const y = 40 + Math.random() * (a.height - h - 50);
+  return { x, y };
+}
+
+function onPointerMoveDodge(e){
+  if (phase !== "GAP") return;
+  if (yesBtn.style.pointerEvents === "none") return;
+
+  const a = arena.getBoundingClientRect();
+  const px = e.clientX - a.left;
+  const py = e.clientY - a.top;
+
+  const y = rectInArena(yesBtn);
+  const cx = y.x + y.w/2;
+  const cy = y.y + y.h/2;
+
+  const dx = px - cx;
+  const dy = py - cy;
+  const dist = Math.hypot(dx, dy);
+
+  // Super difficult: if finger gets within ~115px, YES teleports away
+  if (dist < 115){
+    const spot = randomYesSpot();
+    setBtnPos(yesBtn, spot.x, spot.y);
+  }
+}
+
+function initSlowDrift(){
+  // Start slow drift from current position
+  const y = rectInArena(yesBtn);
+  slowPos = { x: y.x, y: y.y };
+  slowTarget = randomYesSpot();
+  lastTs = 0;
+}
+
+function slowDriftTick(ts){
+  if (yesMode !== "SLOW" || phase !== "GAP"){ rafId = requestAnimationFrame(slowDriftTick); return; }
+  if (yesBtn.style.pointerEvents === "none"){ rafId = requestAnimationFrame(slowDriftTick); return; }
+
+  if (!lastTs) lastTs = ts;
+  const dt = Math.min(40, ts - lastTs);
+  lastTs = ts;
+
+  const speed = 0.06; // px per ms (~60px/s) slow constant movement
+  const vx = slowTarget.x - slowPos.x;
+  const vy = slowTarget.y - slowPos.y;
+  const d = Math.hypot(vx, vy);
+
+  if (d < 6){
+    slowTarget = randomYesSpot();
+  } else {
+    const step = speed * dt;
+    slowPos.x += (vx / d) * step;
+    slowPos.y += (vy / d) * step;
+    setBtnPos(yesBtn, slowPos.x, slowPos.y);
+  }
+
+  rafId = requestAnimationFrame(slowDriftTick);
+}
+
+/* ===== Warnings ===== */
 function warn(){
-  if(tries===1){
-    alert("😳 Careful ah… that was CLOSE.\nYou have 2 tries left.");
-  }
-  if(tries===2){
-    alert("🚨 LAST TRY.\nIf you miss this, the date is cancelled.\nPLEASE PRESS YES.");
+  if (misses === 1){
+    alert("😳 Careful ah… you missed the first chance.\nYou have 2 tries left.");
+  } else if (misses === 2){
+    alert("🚨 LAST WARNING.\nONE LAST TRY LEFT.\nIf you miss again, the date is cancelled.");
   }
 }
 
-/* ===== LOOP ===== */
+/* ===== Game loop ===== */
+function start(){
+  // Ensure initial layout sizes exist
+  centerYes();
+  noOverYes();
+  phase = "BLOCK";
+  loop();
+}
+
 function loop(){
-  if(phase==="BLOCK"){
+  if (phase === "BLOCK"){
     noOverYes();
-    phase="GAP";
-    timer=setTimeout(loop,2300);
-  }else{
+    phase = "GAP";
+    timer = setTimeout(loop, 2300);
+  } else {
+    // GAP starts
     noFarAway();
+    setYesModeForCurrentTry();
 
-    // YES difficulty by try
-    if(tries===0){
-      yesBtn.addEventListener("mouseenter",yesDodge);
-      yesBtn.addEventListener("touchstart",yesDodge,{passive:false});
-    }
-    if(tries===1){
-      yesBtn.removeEventListener("mouseenter",yesDodge);
-      yesBtn.removeEventListener("touchstart",yesDodge);
-      startSlowYes();
-    }
-    if(tries===2){
-      stopSlowYes();
-      yesBtn.style.left="50%";
-      yesBtn.style.transform="translateX(-50%)";
-      yesBtn.style.top="28px";
-    }
+    phase = "BLOCK";
 
-    phase="BLOCK";
-    timer=setTimeout(()=>{
-      tries++;
-      if(tries<MAX_TRIES){
+    const gap = GAP_MS[Math.min(misses, GAP_MS.length - 1)];
+    timer = setTimeout(() => {
+      // Missed this GAP (YES not clicked)
+      misses++;
+      if (misses < MAX_TRIES){
         warn();
+        // Reset YES to center so next round starts consistent
+        stopYesMotion();
+        centerYes();
         loop();
-      }else{
-        card.innerHTML=`
+      } else {
+        stopYesMotion();
+        card.innerHTML = `
           <h1 style="color:#888;">Date Cancelled</h1>
           <p>You missed all 3 chances 😔</p>
           <p style="color:#666;">dont anyhow press next time</p>
         `;
       }
-    }, [300,650,1000][tries] || 1000);
+    }, gap);
   }
 }
 
-setTimeout(()=>{noOverYes(); loop()},120);
-
-/* ===== YES SUCCESS ===== */
+/* ===== YES success ===== */
 function hearts(){
-  for(let i=0;i<18;i++){
-    const h=document.createElement("div");
-    h.className="heart";
-    h.textContent="💖";
-    h.style.left=Math.random()*100+"vw";
-    h.style.top="60vh";
+  for (let i = 0; i < 18; i++){
+    const h = document.createElement("div");
+    h.className = "heart";
+    h.textContent = "💖";
+    h.style.left = Math.random()*100 + "vw";
+    h.style.top = "60vh";
     document.body.appendChild(h);
-    setTimeout(()=>h.remove(),3000);
+    setTimeout(()=>h.remove(), 3000);
   }
 }
 
-yesBtn.addEventListener("click",()=>{
+yesBtn.addEventListener("click", () => {
   clearTimeout(timer);
-  stopSlowYes();
+  stopYesMotion();
   hearts();
-  card.innerHTML=`
+  card.innerHTML = `
     <h1>💘 It’s a Date 💘</h1>
     <p><strong>14 February</strong></p>
     <p>Dinner at <strong>Le Petit Paris</strong></p>
@@ -306,7 +393,16 @@ yesBtn.addEventListener("click",()=>{
     <p style="margin-top:12px;color:#555;">– Bryan</p>
   `;
 });
-</script>
 
+/* Make sure layout is ready before positioning */
+window.addEventListener("load", start);
+window.addEventListener("resize", () => {
+  // Keep things sane on rotation
+  if (!card.innerHTML.includes("It’s a Date") && !card.innerHTML.includes("Date Cancelled")){
+    centerYes();
+    if (phase === "BLOCK") noOverYes(); else noFarAway();
+  }
+});
+</script>
 </body>
 </html>
