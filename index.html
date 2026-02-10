@@ -1,136 +1,206 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Valentine?</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Valentine?</title>
 
-<style>
-*{box-sizing:border-box}
-body{
-  margin:0; min-height:100svh; overflow:hidden; background:#000;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-  -webkit-tap-highlight-color:transparent;
-}
+    <style>
+        * {
+            box-sizing: border-box
+        }
 
-/* Background slideshow */
-.slideshow{position:fixed; inset:0; z-index:-1}
-.slide{position:absolute; inset:0; background-size:cover; background-position:center; opacity:0; animation:fade 40s infinite}
-.slide:nth-child(1){background-image:url("bg1.jpg"); animation-delay:0s}
-.slide:nth-child(2){background-image:url("bg2.jpg"); animation-delay:8s}
-.slide:nth-child(3){background-image:url("bg3.jpg"); animation-delay:16s}
-.slide:nth-child(4){background-image:url("bg4.jpg"); animation-delay:24s}
-.slide:nth-child(5){background-image:url("bg5.jpg"); animation-delay:32s}
-@keyframes fade{0%{opacity:0}10%{opacity:1}40%{opacity:1}50%{opacity:0}100%{opacity:0}}
+        body {
+            margin: 0;
+            min-height: 100svh;
+            overflow: hidden;
+            background: #000;
+            font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-.container{min-height:100svh; display:grid; place-items:center; padding:16px}
-.card{
-  width:min(520px,100%);
-  background:rgba(255,255,255,.72);
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
-  border-radius:26px;
-  padding:22px 20px 26px;
-  text-align:center;
-  box-shadow:0 20px 45px rgba(0,0,0,.25);
-}
-h1{margin:6px 0 8px; font-size:34px; color:#d6336c}
-p{margin:0 0 14px; font-size:17px; color:#333}
+        .slideshow {
+            position: fixed;
+            inset: 0;
+            z-index: -1
+        }
 
-.buttons{
-  position:relative;
-  height:220px;
-  max-width:420px;
-  margin:10px auto 0;
-}
+        .slide {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            animation: fade 40s infinite
+        }
 
-button{
-  position:absolute;
-  min-width:170px;
-  padding:14px 22px;
-  border:none;
-  border-radius:999px;
-  font-size:18px;
-  font-weight:650;
-  cursor:pointer;
-  user-select:none;
-  touch-action:manipulation;
-}
+            .slide:nth-child(1) {
+                background-image: url("bg1.jpg");
+                animation-delay: 0s
+            }
 
-#yes{background:#ff4d6d; color:#fff; z-index:1}
-#no{
-  background:#adb5bd; color:#fff; z-index:3;
-  transition:left 140ms linear, top 140ms linear;
-}
+            .slide:nth-child(2) {
+                background-image: url("bg2.jpg");
+                animation-delay: 8s
+            }
 
-.note{margin-top:12px; font-size:13px; color:#444}
-</style>
+            .slide:nth-child(3) {
+                background-image: url("bg3.jpg");
+                animation-delay: 16s
+            }
+
+            .slide:nth-child(4) {
+                background-image: url("bg4.jpg");
+                animation-delay: 24s
+            }
+
+            .slide:nth-child(5) {
+                background-image: url("bg5.jpg");
+                animation-delay: 32s
+            }
+
+        @keyframes fade {
+            0% {
+                opacity: 0
+            }
+
+            10% {
+                opacity: 1
+            }
+
+            40% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0
+            }
+
+            100% {
+                opacity: 0
+            }
+        }
+
+        .container {
+            min-height: 100svh;
+            display: grid;
+            place-items: center;
+            padding: 16px
+        }
+
+        .card {
+            width: min(520px,100%);
+            background: rgba(255,255,255,.72);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 26px;
+            padding: 22px 20px 26px;
+            text-align: center;
+            box-shadow: 0 20px 45px rgba(0,0,0,.25);
+        }
+
+        h1 {
+            margin: 6px 0 8px;
+            font-size: 34px;
+            color: #d6336c
+        }
+
+        p {
+            margin: 0 0 14px;
+            font-size: 17px;
+            color: #333
+        }
+
+        .buttons {
+            position: relative;
+            height: 220px;
+            max-width: 420px;
+            margin: 10px auto 0;
+        }
+
+        button {
+            position: absolute;
+            min-width: 170px;
+            padding: 14px 22px;
+            border: none;
+            border-radius: 999px;
+            font-size: 18px;
+            font-weight: 650;
+            cursor: pointer;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        #yes {
+            background: #ff4d6d;
+            color: #fff;
+            z-index: 1
+        }
+
+        #no {
+            background: #adb5bd;
+            color: #fff;
+            z-index: 3;
+            transition: left 140ms linear, top 140ms linear;
+        }
+
+        .note {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #444
+        }
+    </style>
 </head>
 
 <body>
-<div class="slideshow">
-  <div class="slide"></div><div class="slide"></div><div class="slide"></div>
-  <div class="slide"></div><div class="slide"></div>
-</div>
-
-<div class="container">
-  <div class="card" id="card">
-    <h1>Hi Amber 💌</h1>
-    <p>Will you be my Valentine?</p>
-
-    <div class="buttons" id="arena">
-      <button id="yes">YES 💖</button>
-      <button id="no">NO 🙃</button>
+    <div class="slideshow">
+        <div class="slide"></div><div class="slide"></div><div class="slide"></div>
+        <div class="slide"></div><div class="slide"></div>
     </div>
 
-    <div class="note">careful, dont anyhow press wrong ah bao</div>
-  </div>
-</div>
+    <div class="container">
+        <div class="card" id="card">
+            <h1>Hi Amber 💌</h1>
+            <p>Will you be my Valentine?</p>
 
-<script>
+            <div class="buttons" id="arena">
+                <button id="yes">YES 💖</button>
+                <button id="no">NO 🙃</button>
+            </div>
+
+            <div class="note">careful, dont anyhow press wrong ah bao</div>
+        </div>
+    </div>
+
+    <script>
 const arena = document.getElementById("arena");
 const yesBtn = document.getElementById("yes");
 const noBtn  = document.getElementById("no");
 const card   = document.getElementById("card");
 
-/* --------- State --------- */
 let running = true;
 
-let noClicks = 0;          // 0 -> try1, 1 -> try2, 2 -> try3
-let mode = "ERRATIC";      // ERRATIC | SLOW | STATIC
+let realNoClicks = 0;   // NO clicked during GAP (counts as "real no")
+let misclicks = 0;      // NO clicked during BLOCK (counts as misclick)
 
-let phase = "BLOCK";       // BLOCK | GAP
-let gapUntil = 0;          // timestamp when GAP ends (no auto-fail; only controls blocker visibility)
+let mode = "ERRATIC";   // ERRATIC | SLOW | STATIC
+let phase = "BLOCK";    // BLOCK | GAP
+let gapUntil = 0;
 
-/* YES motion */
 let yesX=0, yesY=0, vx=0, vy=0, tx=0, ty=0, last=0;
-
-/* NO position is STATEFUL now */
 let noX=0, noY=0;
 
-/* --------- Helpers --------- */
-function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
 
 function metrics(){
-  const a = arena.getBoundingClientRect();
-  const yw = yesBtn.offsetWidth, yh = yesBtn.offsetHeight;
-  const nw = noBtn.offsetWidth,  nh = noBtn.offsetHeight;
-
-  // Inner bounds for YES
+  const a=arena.getBoundingClientRect();
+  const yw=yesBtn.offsetWidth, yh=yesBtn.offsetHeight;
+  const nw=noBtn.offsetWidth, nh=noBtn.offsetHeight;
   const padX=36, padTop=18, padBottom=26;
-
   return {
-    aw:a.width, ah:a.height,
-    yw, yh, nw, nh,
-    yMinX: padX,
-    yMaxX: Math.max(padX, a.width - yw - padX),
-    yMinY: padTop,
-    yMaxY: Math.max(padTop, a.height - yh - padBottom),
-    // Absolute clamp for any button
-    bMinX: 10,
-    bMaxX: Math.max(10, a.width - 10),
-    bMinY: 10,
-    bMaxY: Math.max(10, a.height - 10),
+    aw:a.width, ah:a.height, yw, yh, nw, nh,
+    yMinX: padX, yMaxX: Math.max(padX, a.width-yw-padX),
+    yMinY: padTop, yMaxY: Math.max(padTop, a.height-yh-padBottom)
   };
 }
 
@@ -138,34 +208,12 @@ function setBtn(btn,x,y){
   const a=arena.getBoundingClientRect(), w=btn.offsetWidth, h=btn.offsetHeight;
   const xx=clamp(x,10,a.width-w-10);
   const yy=clamp(y,10,a.height-h-10);
-  btn.style.left = xx + "px";
-  btn.style.top  = yy + "px";
-  return {x:xx, y:yy};
+  btn.style.left=xx+"px"; btn.style.top=yy+"px";
+  return {x:xx,y:yy};
 }
 
 function rectsOverlap(ax,ay,aw,ah,bx,by,bw,bh){
-  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
-}
-
-function setModeFromNoClicks(){
-  if(noClicks===0) mode="ERRATIC";
-  else if(noClicks===1) mode="SLOW";
-  else mode="STATIC";
-}
-
-function resetYes(){
-  const m = metrics();
-  yesX = clamp((m.aw - m.yw)/2, m.yMinX, m.yMaxX);
-  yesY = clamp(20, m.yMinY, m.yMaxY);
-
-  if(mode==="ERRATIC"){
-    vx = (Math.random()*2-1)*420;
-    vy = (Math.random()*2-1)*320;
-  }
-  if(mode==="SLOW"){
-    const s = randomYesSpot(m);
-    tx = s.x; ty = s.y;
-  }
+  return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
 }
 
 function randomYesSpot(m){
@@ -175,71 +223,70 @@ function randomYesSpot(m){
   };
 }
 
-/* --------- NO placement --------- */
+function setModeFromProgress(){
+  // Difficulty changes with REAL NO clicks (not misclicks)
+  if(realNoClicks===0) mode="ERRATIC";
+  else if(realNoClicks===1) mode="SLOW";
+  else mode="STATIC";
+}
+
+function resetYes(){
+  const m=metrics();
+  yesX=clamp((m.aw-m.yw)/2, m.yMinX, m.yMaxX);
+  yesY=clamp(20, m.yMinY, m.yMaxY);
+
+  if(mode==="ERRATIC"){ vx=(Math.random()*2-1)*420; vy=(Math.random()*2-1)*320; }
+  if(mode==="SLOW"){ const s=randomYesSpot(m); tx=s.x; ty=s.y; }
+}
+
 function coverYes(){
-  // Cover YES centered
   noX = yesX + (yesBtn.offsetWidth - noBtn.offsetWidth)/2;
   noY = yesY + (yesBtn.offsetHeight - noBtn.offsetHeight)/2;
 }
 
+function clampCandidate(x,y,w,h,aw,ah){
+  return { x: clamp(x,10,aw-w-10), y: clamp(y,10,ah-h-10) };
+}
+
 function pickSafeNoPosition(){
-  const m = metrics();
+  const m=metrics();
+  const far = [460, 400, 340, 280];
+  let best = null;
 
-  // Try several candidates far away, ensure NO does NOT overlap YES.
-  // Also ensure it’s “far” by preference.
-  const candidates = [];
-  const farDistances = [420, 360, 300, 240];
+  for(const d of far){
+    for(let i=0;i<14;i++){
+      const side=Math.random()<0.5?-1:1;
+      const cx=yesX + side*(d + Math.random()*80);
+      const cy=yesY + 100 + Math.random()*80;
+      const c=clampCandidate(cx,cy,m.nw,m.nh,m.aw,m.ah);
 
-  for(const d of farDistances){
-    for(let i=0;i<12;i++){
-      const side = Math.random()<0.5 ? -1 : 1;
-      const cx = yesX + side*(d + Math.random()*60);
-      const cy = yesY + 90 + Math.random()*80;
-
-      // Clamp candidate
-      const clamped = clampCandidate(cx, cy, m.nw, m.nh, m.aw, m.ah);
-
-      // Reject if overlaps YES
-      const overlap = rectsOverlap(
-        yesX, yesY, m.yw, m.yh,
-        clamped.x, clamped.y, m.nw, m.nh
-      );
-      if(!overlap) candidates.push(clamped);
-    }
-    if(candidates.length) break;
-  }
-
-  // Fallback: put NO in a corner that doesn't overlap
-  if(!candidates.length){
-    const corners = [
-      {x: 10, y: 10},
-      {x: m.aw - m.nw - 10, y: 10},
-      {x: 10, y: m.ah - m.nh - 10},
-      {x: m.aw - m.nw - 10, y: m.ah - m.nh - 10},
-    ];
-    for(const c of corners){
-      if(!rectsOverlap(yesX, yesY, m.yw, m.yh, c.x, c.y, m.nw, m.nh)){
-        noX=c.x; noY=c.y; return;
+      if(!rectsOverlap(yesX,yesY,m.yw,m.yh,c.x,c.y,m.nw,m.nh)){
+        best=c; break;
       }
     }
-    // absolute last resort: shift right
-    noX = clamp(yesX + m.yw + 20, 10, m.aw - m.nw - 10);
-    noY = clamp(yesY, 10, m.ah - m.nh - 10);
-    return;
+    if(best) break;
   }
 
-  const pick = candidates[Math.floor(Math.random()*candidates.length)];
-  noX = pick.x; noY = pick.y;
+  if(!best){
+    // fallback corners
+    const corners=[
+      {x:10,y:10},
+      {x:m.aw-m.nw-10,y:10},
+      {x:10,y:m.ah-m.nh-10},
+      {x:m.aw-m.nw-10,y:m.ah-m.nh-10},
+    ];
+    for(const c of corners){
+      if(!rectsOverlap(yesX,yesY,m.yw,m.yh,c.x,c.y,m.nw,m.nh)){ best=c; break; }
+    }
+  }
+
+  if(!best){
+    best = clampCandidate(yesX+m.yw+24, yesY, m.nw, m.nh, m.aw, m.ah);
+  }
+
+  noX=best.x; noY=best.y;
 }
 
-function clampCandidate(x,y,w,h,aw,ah){
-  return {
-    x: clamp(x, 10, aw - w - 10),
-    y: clamp(y, 10, ah - h - 10)
-  };
-}
-
-/* --------- Phase control --------- */
 function enterBlock(){
   phase="BLOCK";
   coverYes();
@@ -253,45 +300,54 @@ function enterGap(ms){
   yesBtn.style.pointerEvents="auto";
 }
 
-/* --------- Render --------- */
 function render(){
   setBtn(yesBtn, yesX, yesY);
   setBtn(noBtn,  noX,  noY);
 }
 
-/* --------- Main loop --------- */
+/* Misclick GAP windows (hard) */
+function gapMsForMisclick(){
+  // shorter windows early, slightly longer later (still hard)
+  if(realNoClicks===0) return 220;
+  if(realNoClicks===1) return 320;
+  return 450;
+}
+
+function cancel(msg){
+  running=false;
+  card.innerHTML=`
+    <h1 style="color:#888;">Date Cancelled</h1>
+    <p>${msg}</p>
+    <p style="color:#666;">dont anyhow press next time</p>
+  `;
+}
+
 function tick(ts){
   if(!running) return;
   if(!last) last=ts;
-  const dt = Math.min(40, ts-last)/1000;
+  const dt=Math.min(40,ts-last)/1000;
   last=ts;
 
-  // expire GAP back to BLOCK
-  if(phase==="GAP" && ts >= gapUntil){
+  if(phase==="GAP" && ts>=gapUntil){
     enterBlock();
   }
 
-  const m = metrics();
+  const m=metrics();
 
-  // YES motion continues regardless of phase (only pointerEvents changes)
   if(mode==="ERRATIC"){
     vx += (Math.random()*2-1)*700*dt;
     vy += (Math.random()*2-1)*700*dt;
     const sp=Math.hypot(vx,vy), maxSp=700;
     if(sp>maxSp){ vx*=maxSp/sp; vy*=maxSp/sp; }
-
-    yesX += vx*dt;
-    yesY += vy*dt;
-
+    yesX += vx*dt; yesY += vy*dt;
     if(yesX<m.yMinX){ yesX=m.yMinX; vx*=-0.92; }
     if(yesX>m.yMaxX){ yesX=m.yMaxX; vx*=-0.92; }
     if(yesY<m.yMinY){ yesY=m.yMinY; vy*=-0.92; }
     if(yesY>m.yMaxY){ yesY=m.yMaxY; vy*=-0.92; }
   } else if(mode==="SLOW"){
     const dx=tx-yesX, dy=ty-yesY, d=Math.hypot(dx,dy);
-    if(d<10){
-      const s=randomYesSpot(m); tx=s.x; ty=s.y;
-    } else {
+    if(d<10){ const s=randomYesSpot(m); tx=s.x; ty=s.y; }
+    else{
       const speed=120;
       yesX += (dx/d)*speed*dt;
       yesY += (dy/d)*speed*dt;
@@ -299,52 +355,57 @@ function tick(ts){
       yesY=clamp(yesY,m.yMinY,m.yMaxY);
     }
   } else {
-    yesX = clamp((m.aw-m.yw)/2, m.yMinX, m.yMaxX);
-    yesY = clamp(20, m.yMinY, m.yMaxY);
+    yesX=clamp((m.aw-m.yw)/2,m.yMinX,m.yMaxX);
+    yesY=clamp(20,m.yMinY,m.yMaxY);
   }
 
-  // Update NO based on phase:
-  if(phase==="BLOCK"){
-    coverYes();
-  } // in GAP, NO stays frozen at safe position
+  if(phase==="BLOCK") coverYes(); // track
+  // if GAP, NO stays where it is
 
   render();
   requestAnimationFrame(tick);
 }
 
-/* --------- Click logic --------- */
-noBtn.addEventListener("click", () => {
+/* Clicking NO */
+noBtn.addEventListener("click",()=>{
   if(!running) return;
 
   if(phase==="BLOCK"){
-    // This means she tried to tap YES but hit NO. Give her a GAP.
-    enterGap(900); // adjust to taste: 700 (hard) to 1200 (easy)
+    // Misclick: counts + tiny gap
+    misclicks++;
+
+    if(misclicks===2){
+      alert("😤 Eh… stop anyhow tapping ah bao.\nBe careful.");
+    } else if(misclicks===3){
+      alert("🚨 You keep hitting NO.\nOne more time and it’s gg.");
+    } else if(misclicks>=4){
+      cancel("You kept hitting NO too many times 😔");
+      return;
+    }
+
+    enterGap(gapMsForMisclick());
     return;
   }
 
-  // If she clicks NO during GAP, count as real "NO"
-  noClicks++;
+  // GAP: real NO click
+  realNoClicks++;
 
-  if(noClicks===1){
-    alert("😳 Careful ah… still got 2 chances.");
-  } else if(noClicks===2){
+  if(realNoClicks===1){
+    alert("😳 If you click NO again… dangerous already.");
+  } else if(realNoClicks===2){
     alert("🚨 LAST WARNING.\nClick NO again and the date is cancelled.");
   } else {
-    running=false;
-    card.innerHTML=`
-      <h1 style="color:#888;">Date Cancelled</h1>
-      <p>You pressed NO 3 times 😔</p>
-      <p style="color:#666;">dont anyhow press next time</p>
-    `;
+    cancel("You pressed NO 3 times 😔");
     return;
   }
 
-  setModeFromNoClicks();
+  setModeFromProgress();
   resetYes();
   enterBlock();
 });
 
-yesBtn.addEventListener("click", () => {
+/* YES */
+yesBtn.addEventListener("click",()=>{
   if(!running) return;
   running=false;
   card.innerHTML=`
@@ -359,16 +420,16 @@ yesBtn.addEventListener("click", () => {
   `;
 });
 
-/* --------- Init --------- */
-window.addEventListener("load", () => {
-  setModeFromNoClicks();
+/* Init */
+window.addEventListener("load",()=>{
+  setModeFromProgress();
   resetYes();
   enterBlock();
   render();
   requestAnimationFrame(tick);
 });
 
-window.addEventListener("resize", () => {
+window.addEventListener("resize",()=>{
   const m=metrics();
   yesX=clamp(yesX,m.yMinX,m.yMaxX);
   yesY=clamp(yesY,m.yMinY,m.yMaxY);
@@ -376,6 +437,6 @@ window.addEventListener("resize", () => {
   else pickSafeNoPosition();
   render();
 });
-</script>
+    </script>
 </body>
 </html>
