@@ -115,7 +115,7 @@
             position: relative;
             height: 220px;
             max-width: 420px;
-            margin: 10px auto 0
+            margin: 10px auto 0;
         }
 
         button {
@@ -141,7 +141,7 @@
             background: #adb5bd;
             color: #fff;
             z-index: 3;
-            transition: left 140ms linear, top 140ms linear;
+            transition: left 120ms linear, top 120ms linear;
         }
 
         .note {
@@ -162,10 +162,12 @@
         <div class="card" id="card">
             <h1>Hi Amber 💌</h1>
             <p>Will you be my Valentine?</p>
+
             <div class="buttons" id="arena">
                 <button id="yes">YES 💖</button>
                 <button id="no">NO 🙃</button>
             </div>
+
             <div class="note">careful, dont anyhow press wrong ah bao</div>
         </div>
     </div>
@@ -178,11 +180,10 @@ const card=document.getElementById("card");
 
 let running=true;
 
-let strikes=0;          // ANY NO click increments this
-let mode="ERRATIC";     // ERRATIC | SLOW | STATIC
-
-let phase="BLOCK";      // BLOCK | GAP
-let gapUntil=0;
+let strikes=0;           // ANY NO press increments this (reliable on pointerdown)
+let mode="ERRATIC";      // ERRATIC | SLOW | STATIC
+let phase="BLOCK";       // BLOCK | GAP
+let gapUntil=0;          // only used for try 1 & 2; try 3 GAP is indefinite
 
 let yesX=0, yesY=0, vx=0, vy=0, tx=0, ty=0, last=0;
 let noX=0, noY=0;
@@ -223,7 +224,7 @@ function randomYesSpot(m){
 function setModeFromStrikes(){
   if(strikes===0) mode="ERRATIC";
   else if(strikes===1) mode="SLOW";
-  else mode="STATIC";
+  else mode="STATIC"; // 3rd try easier
 }
 
 function resetYes(){
@@ -231,7 +232,7 @@ function resetYes(){
   yesX=clamp((m.aw-m.yw)/2,m.yMinX,m.yMaxX);
   yesY=clamp(20,m.yMinY,m.yMaxY);
 
-  if(mode==="ERRATIC"){ vx=(Math.random()*2-1)*520; vy=(Math.random()*2-1)*380; }
+  if(mode==="ERRATIC"){ vx=(Math.random()*2-1)*560; vy=(Math.random()*2-1)*420; }
   if(mode==="SLOW"){ const s=randomYesSpot(m); tx=s.x; ty=s.y; }
 }
 
@@ -246,13 +247,13 @@ function clampCandidate(x,y,w,h,aw,ah){
 
 function pickSafeNoPosition(){
   const m=metrics();
-  const far=[420,360,300,240];
+  const far=[460,400,340,280,220];
   let best=null;
 
   for(const d of far){
-    for(let i=0;i<16;i++){
+    for(let i=0;i<18;i++){
       const side=Math.random()<0.5?-1:1;
-      const cx=yesX + side*(d + Math.random()*50);
+      const cx=yesX + side*(d + Math.random()*60);
       const cy=yesY + 110 + Math.random()*70;
       const c=clampCandidate(cx,cy,m.nw,m.nh,m.aw,m.ah);
       if(!rectsOverlap(yesX,yesY,m.yw,m.yh,c.x,c.y,m.nw,m.nh)){ best=c; break; }
@@ -261,7 +262,6 @@ function pickSafeNoPosition(){
   }
 
   if(!best){
-    // corners fallback
     const corners=[
       {x:10,y:10},
       {x:m.aw-m.nw-10,y:10},
@@ -274,7 +274,6 @@ function pickSafeNoPosition(){
   }
 
   if(!best) best=clampCandidate(yesX+m.yw+24, yesY, m.nw, m.nh, m.aw, m.ah);
-
   noX=best.x; noY=best.y;
 }
 
@@ -286,7 +285,12 @@ function enterBlock(){
 
 function enterGap(ms){
   phase="GAP";
-  gapUntil=performance.now()+ms;
+  if(mode==="STATIC"){
+    // 3rd try: GAP stays open indefinitely (easier)
+    gapUntil = Infinity;
+  } else {
+    gapUntil = performance.now() + ms;
+  }
   pickSafeNoPosition();
   yesBtn.style.pointerEvents="auto";
 }
@@ -294,13 +298,6 @@ function enterGap(ms){
 function render(){
   setBtn(yesBtn,yesX,yesY);
   setBtn(noBtn,noX,noY);
-}
-
-/* Make GAP short and hard, but necessary */
-function gapMsForStrike(){
-  if(strikes===0) return 260; // brutal
-  if(strikes===1) return 360;
-  return 520;                // last chance slightly more fair
 }
 
 function cancel(msg){
@@ -312,12 +309,20 @@ function cancel(msg){
   `;
 }
 
+function gapMsForCurrentTry(){
+  // Still hard for try 1 & 2; try 3 is indefinite.
+  if(strikes===0) return 260;
+  if(strikes===1) return 380;
+  return 9999999; // unused; try 3 uses Infinity
+}
+
 function tick(ts){
   if(!running) return;
   if(!last) last=ts;
   const dt=Math.min(40,ts-last)/1000;
   last=ts;
 
+  // end GAP for tries 1 & 2 only
   if(phase==="GAP" && ts>=gapUntil){
     enterBlock();
   }
@@ -325,9 +330,9 @@ function tick(ts){
   const m=metrics();
 
   if(mode==="ERRATIC"){
-    vx += (Math.random()*2-1)*900*dt;
-    vy += (Math.random()*2-1)*900*dt;
-    const sp=Math.hypot(vx,vy), maxSp=900;
+    vx += (Math.random()*2-1)*950*dt;
+    vy += (Math.random()*2-1)*950*dt;
+    const sp=Math.hypot(vx,vy), maxSp=980;
     if(sp>maxSp){ vx*=maxSp/sp; vy*=maxSp/sp; }
     yesX += vx*dt; yesY += vy*dt;
     if(yesX<m.yMinX){ yesX=m.yMinX; vx*=-0.90; }
@@ -338,13 +343,14 @@ function tick(ts){
     const dx=tx-yesX, dy=ty-yesY, d=Math.hypot(dx,dy);
     if(d<10){ const s=randomYesSpot(m); tx=s.x; ty=s.y; }
     else{
-      const speed=140;
+      const speed=150;
       yesX += (dx/d)*speed*dt;
       yesY += (dy/d)*speed*dt;
       yesX=clamp(yesX,m.yMinX,m.yMaxX);
       yesY=clamp(yesY,m.yMinY,m.yMaxY);
     }
   } else {
+    // STATIC (3rd try)
     yesX=clamp((m.aw-m.yw)/2,m.yMinX,m.yMaxX);
     yesY=clamp(20,m.yMinY,m.yMaxY);
   }
@@ -354,16 +360,18 @@ function tick(ts){
   requestAnimationFrame(tick);
 }
 
-/* ANY NO click counts as strike, always */
-noBtn.addEventListener("click",()=>{
+/* ========= IMPORTANT: Count NO on pointerdown (mobile reliable) ========= */
+function handleNoPress(e){
   if(!running) return;
+  e.preventDefault();
+  e.stopPropagation();
 
   strikes++;
 
   if(strikes===1){
     alert("😳 Eh you pressed NO ah… careful.");
   } else if(strikes===2){
-    alert("🚨 LAST WARNING.\nPress NO again and it’s cancelled.");
+    alert("🚨 LAST WARNING.\nPress NO again and it’s cancelled.\n(Last chance now, press YES properly.)");
   } else {
     cancel("You pressed NO 3 times 😔");
     return;
@@ -372,9 +380,14 @@ noBtn.addEventListener("click",()=>{
   setModeFromStrikes();
   resetYes();
 
-  // Still allow a small GAP so YES can be clicked, but it’s HARD and short.
-  enterGap(gapMsForStrike());
-});
+  // Always open a GAP after a strike so YES is actually possible,
+  // but it’s short & hard in try 1/2, and easy in try 3 (indefinite).
+  enterGap(gapMsForCurrentTry());
+}
+
+noBtn.addEventListener("pointerdown", handleNoPress, {passive:false});
+// keep click too (desktop), but pointerdown already covers mobile reliably
+noBtn.addEventListener("click", (e)=>{ /* no-op: handled by pointerdown */ });
 
 yesBtn.addEventListener("click",()=>{
   if(!running) return;
