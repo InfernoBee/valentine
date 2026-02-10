@@ -115,7 +115,7 @@
             position: relative;
             height: 220px;
             max-width: 420px;
-            margin: 10px auto 0;
+            margin: 10px auto 0
         }
 
         button {
@@ -162,30 +162,27 @@
         <div class="card" id="card">
             <h1>Hi Amber 💌</h1>
             <p>Will you be my Valentine?</p>
-
             <div class="buttons" id="arena">
                 <button id="yes">YES 💖</button>
                 <button id="no">NO 🙃</button>
             </div>
-
             <div class="note">careful, dont anyhow press wrong ah bao</div>
         </div>
     </div>
 
     <script>
-const arena = document.getElementById("arena");
-const yesBtn = document.getElementById("yes");
-const noBtn  = document.getElementById("no");
-const card   = document.getElementById("card");
+const arena=document.getElementById("arena");
+const yesBtn=document.getElementById("yes");
+const noBtn=document.getElementById("no");
+const card=document.getElementById("card");
 
-let running = true;
+let running=true;
 
-let realNoClicks = 0;   // NO clicked during GAP (counts as "real no")
-let misclicks = 0;      // NO clicked during BLOCK (counts as misclick)
+let strikes=0;          // ANY NO click increments this
+let mode="ERRATIC";     // ERRATIC | SLOW | STATIC
 
-let mode = "ERRATIC";   // ERRATIC | SLOW | STATIC
-let phase = "BLOCK";    // BLOCK | GAP
-let gapUntil = 0;
+let phase="BLOCK";      // BLOCK | GAP
+let gapUntil=0;
 
 let yesX=0, yesY=0, vx=0, vy=0, tx=0, ty=0, last=0;
 let noX=0, noY=0;
@@ -199,8 +196,8 @@ function metrics(){
   const padX=36, padTop=18, padBottom=26;
   return {
     aw:a.width, ah:a.height, yw, yh, nw, nh,
-    yMinX: padX, yMaxX: Math.max(padX, a.width-yw-padX),
-    yMinY: padTop, yMaxY: Math.max(padTop, a.height-yh-padBottom)
+    yMinX: padX, yMaxX: Math.max(padX,a.width-yw-padX),
+    yMinY: padTop, yMaxY: Math.max(padTop,a.height-yh-padBottom)
   };
 }
 
@@ -218,24 +215,23 @@ function rectsOverlap(ax,ay,aw,ah,bx,by,bw,bh){
 
 function randomYesSpot(m){
   return {
-    x: m.yMinX + Math.random()*Math.max(1,(m.yMaxX-m.yMinX)),
-    y: m.yMinY + Math.random()*Math.max(1,(m.yMaxY-m.yMinY))
+    x:m.yMinX + Math.random()*Math.max(1,(m.yMaxX-m.yMinX)),
+    y:m.yMinY + Math.random()*Math.max(1,(m.yMaxY-m.yMinY))
   };
 }
 
-function setModeFromProgress(){
-  // Difficulty changes with REAL NO clicks (not misclicks)
-  if(realNoClicks===0) mode="ERRATIC";
-  else if(realNoClicks===1) mode="SLOW";
+function setModeFromStrikes(){
+  if(strikes===0) mode="ERRATIC";
+  else if(strikes===1) mode="SLOW";
   else mode="STATIC";
 }
 
 function resetYes(){
   const m=metrics();
-  yesX=clamp((m.aw-m.yw)/2, m.yMinX, m.yMaxX);
-  yesY=clamp(20, m.yMinY, m.yMaxY);
+  yesX=clamp((m.aw-m.yw)/2,m.yMinX,m.yMaxX);
+  yesY=clamp(20,m.yMinY,m.yMaxY);
 
-  if(mode==="ERRATIC"){ vx=(Math.random()*2-1)*420; vy=(Math.random()*2-1)*320; }
+  if(mode==="ERRATIC"){ vx=(Math.random()*2-1)*520; vy=(Math.random()*2-1)*380; }
   if(mode==="SLOW"){ const s=randomYesSpot(m); tx=s.x; ty=s.y; }
 }
 
@@ -245,30 +241,27 @@ function coverYes(){
 }
 
 function clampCandidate(x,y,w,h,aw,ah){
-  return { x: clamp(x,10,aw-w-10), y: clamp(y,10,ah-h-10) };
+  return {x:clamp(x,10,aw-w-10), y:clamp(y,10,ah-h-10)};
 }
 
 function pickSafeNoPosition(){
   const m=metrics();
-  const far = [460, 400, 340, 280];
-  let best = null;
+  const far=[420,360,300,240];
+  let best=null;
 
   for(const d of far){
-    for(let i=0;i<14;i++){
+    for(let i=0;i<16;i++){
       const side=Math.random()<0.5?-1:1;
-      const cx=yesX + side*(d + Math.random()*80);
-      const cy=yesY + 100 + Math.random()*80;
+      const cx=yesX + side*(d + Math.random()*50);
+      const cy=yesY + 110 + Math.random()*70;
       const c=clampCandidate(cx,cy,m.nw,m.nh,m.aw,m.ah);
-
-      if(!rectsOverlap(yesX,yesY,m.yw,m.yh,c.x,c.y,m.nw,m.nh)){
-        best=c; break;
-      }
+      if(!rectsOverlap(yesX,yesY,m.yw,m.yh,c.x,c.y,m.nw,m.nh)){ best=c; break; }
     }
     if(best) break;
   }
 
   if(!best){
-    // fallback corners
+    // corners fallback
     const corners=[
       {x:10,y:10},
       {x:m.aw-m.nw-10,y:10},
@@ -280,9 +273,7 @@ function pickSafeNoPosition(){
     }
   }
 
-  if(!best){
-    best = clampCandidate(yesX+m.yw+24, yesY, m.nw, m.nh, m.aw, m.ah);
-  }
+  if(!best) best=clampCandidate(yesX+m.yw+24, yesY, m.nw, m.nh, m.aw, m.ah);
 
   noX=best.x; noY=best.y;
 }
@@ -295,22 +286,21 @@ function enterBlock(){
 
 function enterGap(ms){
   phase="GAP";
-  gapUntil = performance.now() + ms;
+  gapUntil=performance.now()+ms;
   pickSafeNoPosition();
   yesBtn.style.pointerEvents="auto";
 }
 
 function render(){
-  setBtn(yesBtn, yesX, yesY);
-  setBtn(noBtn,  noX,  noY);
+  setBtn(yesBtn,yesX,yesY);
+  setBtn(noBtn,noX,noY);
 }
 
-/* Misclick GAP windows (hard) */
-function gapMsForMisclick(){
-  // shorter windows early, slightly longer later (still hard)
-  if(realNoClicks===0) return 220;
-  if(realNoClicks===1) return 320;
-  return 450;
+/* Make GAP short and hard, but necessary */
+function gapMsForStrike(){
+  if(strikes===0) return 260; // brutal
+  if(strikes===1) return 360;
+  return 520;                // last chance slightly more fair
 }
 
 function cancel(msg){
@@ -335,20 +325,20 @@ function tick(ts){
   const m=metrics();
 
   if(mode==="ERRATIC"){
-    vx += (Math.random()*2-1)*700*dt;
-    vy += (Math.random()*2-1)*700*dt;
-    const sp=Math.hypot(vx,vy), maxSp=700;
+    vx += (Math.random()*2-1)*900*dt;
+    vy += (Math.random()*2-1)*900*dt;
+    const sp=Math.hypot(vx,vy), maxSp=900;
     if(sp>maxSp){ vx*=maxSp/sp; vy*=maxSp/sp; }
     yesX += vx*dt; yesY += vy*dt;
-    if(yesX<m.yMinX){ yesX=m.yMinX; vx*=-0.92; }
-    if(yesX>m.yMaxX){ yesX=m.yMaxX; vx*=-0.92; }
-    if(yesY<m.yMinY){ yesY=m.yMinY; vy*=-0.92; }
-    if(yesY>m.yMaxY){ yesY=m.yMaxY; vy*=-0.92; }
+    if(yesX<m.yMinX){ yesX=m.yMinX; vx*=-0.90; }
+    if(yesX>m.yMaxX){ yesX=m.yMaxX; vx*=-0.90; }
+    if(yesY<m.yMinY){ yesY=m.yMinY; vy*=-0.90; }
+    if(yesY>m.yMaxY){ yesY=m.yMaxY; vy*=-0.90; }
   } else if(mode==="SLOW"){
     const dx=tx-yesX, dy=ty-yesY, d=Math.hypot(dx,dy);
     if(d<10){ const s=randomYesSpot(m); tx=s.x; ty=s.y; }
     else{
-      const speed=120;
+      const speed=140;
       yesX += (dx/d)*speed*dt;
       yesY += (dy/d)*speed*dt;
       yesX=clamp(yesX,m.yMinX,m.yMaxX);
@@ -359,52 +349,33 @@ function tick(ts){
     yesY=clamp(20,m.yMinY,m.yMaxY);
   }
 
-  if(phase==="BLOCK") coverYes(); // track
-  // if GAP, NO stays where it is
-
+  if(phase==="BLOCK") coverYes();
   render();
   requestAnimationFrame(tick);
 }
 
-/* Clicking NO */
+/* ANY NO click counts as strike, always */
 noBtn.addEventListener("click",()=>{
   if(!running) return;
 
-  if(phase==="BLOCK"){
-    // Misclick: counts + tiny gap
-    misclicks++;
+  strikes++;
 
-    if(misclicks===2){
-      alert("😤 Eh… stop anyhow tapping ah bao.\nBe careful.");
-    } else if(misclicks===3){
-      alert("🚨 You keep hitting NO.\nOne more time and it’s gg.");
-    } else if(misclicks>=4){
-      cancel("You kept hitting NO too many times 😔");
-      return;
-    }
-
-    enterGap(gapMsForMisclick());
-    return;
-  }
-
-  // GAP: real NO click
-  realNoClicks++;
-
-  if(realNoClicks===1){
-    alert("😳 If you click NO again… dangerous already.");
-  } else if(realNoClicks===2){
-    alert("🚨 LAST WARNING.\nClick NO again and the date is cancelled.");
+  if(strikes===1){
+    alert("😳 Eh you pressed NO ah… careful.");
+  } else if(strikes===2){
+    alert("🚨 LAST WARNING.\nPress NO again and it’s cancelled.");
   } else {
     cancel("You pressed NO 3 times 😔");
     return;
   }
 
-  setModeFromProgress();
+  setModeFromStrikes();
   resetYes();
-  enterBlock();
+
+  // Still allow a small GAP so YES can be clicked, but it’s HARD and short.
+  enterGap(gapMsForStrike());
 });
 
-/* YES */
 yesBtn.addEventListener("click",()=>{
   if(!running) return;
   running=false;
@@ -420,9 +391,8 @@ yesBtn.addEventListener("click",()=>{
   `;
 });
 
-/* Init */
 window.addEventListener("load",()=>{
-  setModeFromProgress();
+  setModeFromStrikes();
   resetYes();
   enterBlock();
   render();
